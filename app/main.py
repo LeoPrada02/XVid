@@ -2,7 +2,8 @@
 
 The PC downloads X videos with yt-dlp into one folder (the library). The phone
 browses it over the home Wi-Fi (HTTPS, see tools/setup_https.py), streams
-videos, and saves the ones it wants.
+videos, and saves the ones it wants. Downloads started on the phone go straight
+to the phone instead (the PC only passes them through).
 """
 
 import hashlib
@@ -22,9 +23,10 @@ import qrcode
 import qrcode.image.svg
 import yt_dlp
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, UploadFile
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from yt_dlp.networking import Request as YdlRequest
 
 from app.network import CA_FILE, HTTP_PORT, cert_ip, https_ready
 
@@ -32,17 +34,44 @@ ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
 
 LIBRARY = Path(os.environ.get("XVID_LIBRARY") or Path.home() / "Videos" / "XVid").expanduser().resolve()
-TEMP = LIBRARY / ".tmp"
+META = LIBRARY / ".xvid"  # thumbnails, video info and temp files, hidden so the library only shows videos
+TEMP = META / "tmp"
 TEMP.mkdir(parents=True, exist_ok=True)
+if os.name == "nt":
+    import ctypes
+    ctypes.windll.kernel32.SetFileAttributesW(str(META), 0x2)  # FILE_ATTRIBUTE_HIDDEN
 
 # Needed for sensitive, protected or subscriber-only posts your account can see.
 COOKIES_BROWSER = os.environ.get("XVID_COOKIES_BROWSER")  # e.g. "firefox"
-COOKIES_FILE = os.environ.get("XVID_COOKIES_FILE")  # Netscape cookies.txt
+# Netscape cookies.txt: set by XVID_COOKIES_FILE, or just dropped in XVid's folder.
+COOKIES_FILE = os.environ.get("XVID_COOKIES_FILE") or (str(ROOT / "cookies.txt") if (ROOT / "cookies.txt").exists() else None)
 HAS_FFMPEG = shutil.which("ffmpeg") is not None
 
 VIDEO_EXTS = {".mp4", ".webm", ".mkv", ".mov", ".m4v"}
 THUMB_EXTS = (".jpg", ".webp", ".png")
 X_HOSTS = {"x.com", "twitter.com"}
+
+OUTTMPL = "%(uploader_id)s_%(id)s%(playlist_index&_{}|)s.%(ext)s"
+# Without ffmpeg, pick a single file that already has audio and video.
+FORMAT = "bv*+ba/b" if HAS_FFMPEG else "b[ext=mp4]/b"
+
+
+def tidy_library() -> None:
+    """Move metadata that older versions kept next to the videos into META, and clear leftover temp files."""
+    for video in LIBRARY.iterdir():
+        if video.is_file() and video.suffix.lower() in VIDEO_EXTS:
+            for ext in (".json", *THUMB_EXTS):
+                if (old := video.with_suffix(ext)).exists():
+                    os.replace(old, META / old.name)
+    shutil.rmtree(LIBRARY / ".tmp", ignore_errors=True)
+    for leftover in TEMP.iterdir():
+        if leftover.is_dir():
+            shutil.rmtree(leftover, ignore_errors=True)
+        else:
+            leftover.unlink(missing_ok=True)
+
+
+tidy_library()
 
 
 def load_token() -> str:
@@ -96,6 +125,21 @@ def find_x_url(text: str) -> str | None:
     return None
 
 
+def parse_x_url(text: str) -> str:
+    if url := normalize_x_url(text) or find_x_url(text):
+        return url
+    raise HTTPException(400, "That doesn't look like a link to an X post")
+
+
+def ydl_opts(**extra) -> dict:
+    opts = {"quiet": True, "no_warnings": True, "noprogress": True, **extra}
+    if COOKIES_BROWSER:
+        opts["cookiesfrombrowser"] = (COOKIES_BROWSER,)
+    if COOKIES_FILE:
+        opts["cookiefile"] = COOKIES_FILE
+    return opts
+
+
 # ---------------------------------------------------------------- download jobs
 
 jobs: dict[str, dict] = {}
@@ -115,8 +159,12 @@ def clean_error(message: str) -> str:
     return message
 
 
+def meta_file(video: Path, ext: str) -> Path:
+    return META / f"{video.stem}{ext}"
+
+
 def write_sidecar(video: Path, data: dict) -> None:
-    video.with_suffix(".json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    meta_file(video, ".json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def run_job(job_id: str, url: str) -> None:
@@ -126,23 +174,15 @@ def run_job(job_id: str, url: str) -> None:
             pct = round(100 * d.get("downloaded_bytes", 0) / total) if total else None
             update_job(job_id, status="downloading", progress=pct)
 
-    opts = {
-        "paths": {"home": str(LIBRARY), "temp": str(TEMP)},
-        "outtmpl": "%(uploader_id)s_%(id)s%(playlist_index&_{}|)s.%(ext)s",
-        # Without ffmpeg, pick a single file that already has audio and video.
-        "format": "bv*+ba/b" if HAS_FFMPEG else "b[ext=mp4]/b",
-        "merge_output_format": "mp4",
-        "writethumbnail": True,
-        "restrictfilenames": True,
-        "quiet": True,
-        "no_warnings": True,
-        "noprogress": True,
-        "progress_hooks": [progress],
-    }
-    if COOKIES_BROWSER:
-        opts["cookiesfrombrowser"] = (COOKIES_BROWSER,)
-    if COOKIES_FILE:
-        opts["cookiefile"] = COOKIES_FILE
+    opts = ydl_opts(
+        paths={"home": str(LIBRARY), "temp": str(TEMP), "thumbnail": str(META)},
+        outtmpl=OUTTMPL,
+        format=FORMAT,
+        merge_output_format="mp4",
+        writethumbnail=True,
+        restrictfilenames=True,
+        progress_hooks=[progress],
+    )
 
     update_job(job_id, status="downloading")
     try:
@@ -174,9 +214,7 @@ class JobIn(BaseModel):
 
 @app.post("/api/jobs", dependencies=[Depends(require_auth)])
 def create_job(body: JobIn) -> dict:
-    url = normalize_x_url(body.url) or find_x_url(body.url)
-    if not url:
-        raise HTTPException(400, "That doesn't look like a link to an X post")
+    url = parse_x_url(body.url)
     with jobs_lock:
         for job in jobs.values():
             if job["url"] == url and job["status"] in ("queued", "downloading"):
@@ -202,6 +240,104 @@ def clear_finished_jobs() -> dict:
     return {"ok": True}
 
 
+# ---------------------------------------------------------------- straight to the phone
+# A browser can't run yt-dlp, so the PC finds the video and passes it through to the
+# phone as a download. Nothing is kept on the PC or added to the library.
+
+DIRECT_TTL = 1800  # seconds a prepared download stays available ("Save again")
+direct_items: dict[str, dict] = {}
+direct_lock = threading.Lock()
+
+
+def progressive_format(entry: dict) -> dict | None:
+    """The best single file with both audio and video, which can be streamed through as is."""
+    candidates = [f for f in entry.get("formats") or []
+                  if f.get("protocol") in ("http", "https") and f.get("vcodec") != "none" and f.get("acodec") != "none"]
+    return max(candidates, key=lambda f: (f.get("height") or 0, f.get("tbr") or 0), default=None)
+
+
+def direct_filename(entry: dict, index: int, count: int) -> str:
+    suffix = f"_{index}" if count > 1 else ""
+    return re.sub(r"[^A-Za-z0-9_.-]+", "_", f"{entry.get('uploader_id') or 'x'}_{entry.get('id')}{suffix}.mp4")
+
+
+def expire_direct() -> None:
+    now = time.time()
+    with direct_lock:
+        for item_id in [k for k, item in direct_items.items() if item["expires"] < now]:
+            item = direct_items.pop(item_id)
+            if item.get("folder"):
+                shutil.rmtree(item["folder"], ignore_errors=True)
+
+
+@app.post("/api/direct", dependencies=[Depends(require_auth)])
+def create_direct(body: JobIn) -> list[dict]:
+    """Prepare a phone download: returns one item per video in the post."""
+    url = parse_x_url(body.url)
+    expire_direct()
+    folder = None
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts()) as ydl:
+            info = ydl.extract_info(url, download=False)
+        entries = [e for e in info.get("entries") or [info] if e]
+        formats = [progressive_format(e) for e in entries]
+        if all(formats):
+            sources = [{"url": f["url"], "headers": f.get("http_headers") or {}} for f in formats]
+        else:
+            # Some videos only come as separate audio and video: download and merge them in a temp folder.
+            folder = TEMP / f"direct-{uuid.uuid4().hex}"
+            opts = ydl_opts(paths={"home": str(folder), "temp": str(folder)}, outtmpl=OUTTMPL,
+                            format=FORMAT, merge_output_format="mp4")
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+            entries = [e for e in info.get("entries") or [info] if e and e.get("requested_downloads")]
+            sources = [{"path": e["requested_downloads"][0]["filepath"]} for e in entries]
+    except Exception as e:
+        raise HTTPException(502, clean_error(str(e)))
+    if not entries:
+        raise HTTPException(404, "No video found in this post")
+
+    items = []
+    with direct_lock:
+        for i, (entry, source) in enumerate(zip(entries, sources), 1):
+            item = {"id": secrets.token_urlsafe(12), "title": entry.get("title"),
+                    "filename": direct_filename(entry, i, len(entries)),
+                    "expires": time.time() + DIRECT_TTL, "folder": folder, **source}
+            direct_items[item["id"]] = item
+            items.append({"id": item["id"], "title": item["title"], "filename": item["filename"]})
+    return items
+
+
+@app.get("/api/direct/{item_id}", dependencies=[Depends(require_auth)])
+def direct_download(item_id: str) -> Response:
+    with direct_lock:
+        item = direct_items.get(item_id)
+    if not item or item["expires"] < time.time():
+        raise HTTPException(404, "This download expired. Share the post to XVid again.")
+    if "path" in item:
+        return FileResponse(item["path"], filename=item["filename"])
+
+    ydl = yt_dlp.YoutubeDL(ydl_opts())  # reuses yt-dlp's headers and cookies for X's servers
+    try:
+        upstream = ydl.urlopen(YdlRequest(item["url"], headers=item["headers"]))
+    except Exception as e:
+        ydl.close()
+        raise HTTPException(502, f"Couldn't get the video from X: {e}")
+
+    def body():
+        try:
+            while chunk := upstream.read(256 * 1024):
+                yield chunk
+        finally:
+            upstream.close()
+            ydl.close()
+
+    headers = {"Content-Disposition": f'attachment; filename="{item["filename"]}"'}
+    if length := upstream.headers.get("Content-Length"):
+        headers["Content-Length"] = length  # lets Android show download progress
+    return StreamingResponse(body(), media_type="video/mp4", headers=headers)
+
+
 # ---------------------------------------------------------------- library
 
 def library_file(name: str) -> Path:
@@ -213,13 +349,13 @@ def library_file(name: str) -> Path:
 
 def video_entry(path: Path) -> dict:
     meta = {}
-    sidecar = path.with_suffix(".json")
+    sidecar = meta_file(path, ".json")
     if sidecar.exists():
         try:
             meta = json.loads(sidecar.read_text(encoding="utf-8"))
         except ValueError:
             pass
-    thumb = next((path.with_suffix(ext).name for ext in THUMB_EXTS if path.with_suffix(ext).exists()), None)
+    thumb = next((meta_file(path, ext).name for ext in THUMB_EXTS if meta_file(path, ext).exists()), None)
     stat = path.stat()
     return {
         "name": path.name,
@@ -244,7 +380,7 @@ def list_videos() -> list[dict]:
 def delete_video(name: str) -> dict:
     path = library_file(name)
     for ext in (".json", *THUMB_EXTS):
-        path.with_suffix(ext).unlink(missing_ok=True)
+        meta_file(path, ext).unlink(missing_ok=True)
     path.unlink()
     return {"ok": True}
 
@@ -281,8 +417,8 @@ def media(name: str, download: bool = False) -> FileResponse:
 
 @app.get("/thumb/{name}", dependencies=[Depends(require_auth)])
 def thumb(name: str) -> FileResponse:
-    path = library_file(name)
-    if path.suffix.lower() not in THUMB_EXTS:
+    path = (META / name).resolve()
+    if path.parent != META or not path.is_file() or path.suffix.lower() not in THUMB_EXTS:
         raise HTTPException(404, "Not found")
     return FileResponse(path, headers={"Cache-Control": "private, max-age=604800"})
 

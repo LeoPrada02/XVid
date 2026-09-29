@@ -50,7 +50,8 @@
     <form id="add-form" class="add">
       <input id="url" type="url" inputmode="url" placeholder="Paste an X link" autocomplete="off">
       <button type="button" id="paste" class="secondary">Paste</button>
-      <button type="submit">Download</button>
+      <button type="button" id="to-pc" class="secondary" hidden>To PC</button>
+      <button type="submit" id="download">Download</button>
     </form>
     <p id="warning" class="muted small" hidden></p>
 
@@ -64,14 +65,14 @@
 
     <section>
       <div class="section-head">
-        <h2>Library</h2>
+        <h2>PC library</h2>
         <span id="count" class="muted small"></span>
       </div>
       <div class="folder">
         <code id="library-path" class="muted small"></code>
         <button id="open-folder" class="link" hidden>Open folder</button>
       </div>
-      <p id="empty" class="muted" hidden>No videos yet. Share an X post to XVid, or paste a link above.</p>
+      <p id="empty" class="muted" hidden>No videos in the PC library yet.</p>
       <div id="grid" class="grid"></div>
     </section>
   </main>

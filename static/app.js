@@ -4,6 +4,9 @@ let pendingShare = new URLSearchParams(location.search).get("share");
 let pollTimer = null;
 let knownDone = new Set();
 let current = null; // video open in the player
+let isLocal = false; // true when this browser runs on the PC itself
+let pcJobs = []; // downloads into the PC library (from the server)
+let phoneJobs = []; // downloads started on this phone, which go straight to the phone
 
 // ---------------------------------------------------------------- helpers
 
@@ -70,6 +73,9 @@ async function showApp() {
   if (!me.ffmpeg) warnings.push("ffmpeg not found: some videos may download in lower quality.");
   $("#warning").textContent = warnings.join(" ");
   $("#warning").hidden = !warnings.length;
+  isLocal = me.local;
+  $("#download").textContent = isLocal ? "Download" : "To phone";
+  $("#to-pc").hidden = isLocal;
   $("#library-path").textContent = me.library;
   $("#open-folder").hidden = !me.local;
   $("#add-phone").hidden = !me.local;
@@ -85,8 +91,9 @@ async function showApp() {
     const shared = pendingShare;
     pendingShare = null;
     history.replaceState(null, "", "/");
-    if (shared) queue(shared);
-    else toast("No X link found in what you shared");
+    if (!shared) toast("No X link found in what you shared");
+    else if (isLocal) queue(shared);
+    else saveToPhone(shared);
   }
 }
 
@@ -114,13 +121,78 @@ async function queue(url) {
   }
 }
 
+function takeUrl() {
+  const url = $("#url").value.trim();
+  $("#url").value = "";
+  return url;
+}
+
 $("#add-form").addEventListener("submit", (e) => {
   e.preventDefault();
-  const url = $("#url").value.trim();
+  const url = takeUrl();
   if (!url) return;
-  $("#url").value = "";
-  queue(url);
+  if (isLocal) queue(url);
+  else saveToPhone(url);
 });
+
+$("#to-pc").addEventListener("click", () => {
+  const url = takeUrl();
+  if (url) queue(url);
+});
+
+// Straight to the phone: the PC finds the video and passes it through, without keeping it.
+async function saveToPhone(url) {
+  const job = { label: url.replace("https://", ""), status: "preparing", files: [], error: null };
+  phoneJobs.unshift(job);
+  renderDownloads();
+  try {
+    job.files = await api("/api/direct", { method: "POST", body: JSON.stringify({ url }) });
+    job.label = job.files[0].title || job.label;
+    job.status = "done";
+    job.files.forEach((f) => {
+      const a = directLink(f, "");
+      document.body.append(a);
+      a.click();
+      a.remove();
+    });
+  } catch (err) {
+    job.status = "error";
+    job.error = err.message;
+  }
+  renderDownloads();
+}
+
+function directLink(file, text) {
+  const link = el("a", {
+    className: "button small-button",
+    href: `/api/direct/${encodeURIComponent(file.id)}`,
+    download: file.filename,
+    textContent: text,
+  });
+  link.addEventListener("click", savedToast);
+  return link;
+}
+
+function renderPhoneJob(job) {
+  const label = { preparing: "Getting video…", done: "Sent to phone", error: "Failed" }[job.status];
+  const n = job.files.length;
+  return el("li", { className: "job" },
+    el("div", { className: "job-top" },
+      el("span", { className: "job-url", textContent: job.label }),
+      el("span", { className: job.status === "error" ? "error" : "muted", textContent: label })),
+    job.status === "preparing" ? el("div", { className: "bar indeterminate" }, el("div")) : null,
+    job.error ? el("p", { className: "error", textContent: job.error }) : null,
+    job.status === "done"
+      ? el("div", { className: "job-actions" },
+          ...job.files.map((f, i) => directLink(f, n > 1 ? `Save video ${i + 1} to phone` : "Save to phone")))
+      : null);
+}
+
+function renderDownloads() {
+  const items = [...phoneJobs.map(renderPhoneJob), ...pcJobs.map(renderJob)];
+  $("#jobs-section").hidden = !items.length;
+  $("#jobs").replaceChildren(...items);
+}
 
 $("#paste").addEventListener("click", async () => {
   try {
@@ -131,6 +203,7 @@ $("#paste").addEventListener("click", async () => {
 });
 
 $("#clear-jobs").addEventListener("click", async () => {
+  phoneJobs = phoneJobs.filter((j) => j.status === "preparing");
   await api("/api/jobs", { method: "DELETE" });
   refreshJobs();
 });
@@ -138,8 +211,8 @@ $("#clear-jobs").addEventListener("click", async () => {
 async function refreshJobs() {
   clearTimeout(pollTimer);
   const jobs = await api("/api/jobs");
-  $("#jobs-section").hidden = !jobs.length;
-  $("#jobs").replaceChildren(...jobs.map(renderJob));
+  pcJobs = jobs;
+  renderDownloads();
 
   const newlyDone = jobs.filter((j) => j.status === "done" && !knownDone.has(j.id));
   newlyDone.forEach((j) => knownDone.add(j.id));
@@ -168,7 +241,8 @@ function renderJob(job) {
       el("span", { className: job.status === "error" ? "error" : "muted", textContent: label })),
     bar,
     job.error ? el("p", { className: "error", textContent: job.error }) : null,
-    job.status === "done" ? el("div", { className: "job-actions" }, ...job.files.map(saveLink)) : null);
+    // On the PC the video is already in the library; on the phone, offer to copy it over.
+    job.status === "done" && !isLocal ? el("div", { className: "job-actions" }, ...job.files.map(saveLink)) : null);
 }
 
 function saveLink(name, i, files) {

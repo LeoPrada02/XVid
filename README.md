@@ -2,10 +2,12 @@
 
 Download X (Twitter) videos to your PC and use them from your Android phone.
 
-- In the X app: **Share → XVid**. Your PC downloads the video, then tap **Save to phone**.
-- Browse and watch everything your PC downloaded, from the phone.
-- Saved videos stay in your phone's gallery, even when the PC is off or you're away.
-- **Upload** sends a video from the phone to the PC.
+- In the X app: **Share → XVid** and the video lands in your phone's Downloads (and gallery).
+  The PC fetches it for the phone but keeps nothing.
+- Links pasted on the PC (or sent with **To PC** from the phone) go to the PC library.
+- Browse and watch the PC library from the phone, and **Save to phone** any of it.
+- Saved videos stay on your phone, even when the PC is off or you're away.
+- **Upload** sends a video from the phone to the PC library.
 
 Everything stays on your home Wi-Fi. Nothing is reachable from the internet.
 
@@ -58,7 +60,8 @@ so subscriber-only videos need an active subscription on that account.
 - **Easiest:** log in to X in **Firefox**, then set the user environment variable
   `XVID_COOKIES_BROWSER` to `firefox` (Start → "Edit environment variables for your account")
   and restart XVid. Chrome and Edge cookies can't be read on Windows (app-bound encryption).
-- **Or:** export a `cookies.txt` with a browser extension and set `XVID_COOKIES_FILE` to its path.
+- **Or:** with a browser extension such as *Get cookies.txt LOCALLY*, export your cookies while on x.com,
+  save the file as `cookies.txt` in XVid's folder, and restart XVid (`start.cmd`). That's it.
 
 Cookies are your X session. Keep them private (`cookies.txt` is git-ignored).
 Heavy automated use can get an account flagged.
@@ -72,7 +75,7 @@ User environment variables, read when XVid starts:
 | `XVID_LIBRARY` | `%USERPROFILE%\Videos\XVid` | Where videos are saved |
 | `XVID_TOKEN` | contents of `token.txt` | Password for logging in by hand (pairing makes it unnecessary) |
 | `XVID_COOKIES_BROWSER` | none | e.g. `firefox`: use that browser's X login |
-| `XVID_COOKIES_FILE` | none | Path to a Netscape `cookies.txt` |
+| `XVID_COOKIES_FILE` | `cookies.txt` in XVid's folder, if present | Path to a Netscape `cookies.txt` |
 
 ## How it works
 
@@ -90,6 +93,11 @@ Phone before trusting the PC -----------> PC :8000 HTTP   only the setup page an
   so it's never sent over the plain-HTTP connection.
 - **Security:** the PC itself is always trusted. Other devices need pairing (or the token),
   and repeated wrong attempts get blocked for 5 minutes.
+- **Phone downloads:** a browser can't run yt-dlp, so the PC looks the video up and streams
+  it straight through to the phone. Nothing is saved on the PC. If X only offers separate
+  audio and video, the PC merges them in a temporary folder and deletes it within 30 minutes.
+- **The library folder only holds videos.** Thumbnails, video info and temporary files live in
+  its hidden `.xvid` subfolder.
 - yt-dlp updates to its nightly build on every start, because X breaks it often.
 - Python packages live in `%LOCALAPPDATA%\XVid\venv`, outside the repo (and OneDrive).
 
