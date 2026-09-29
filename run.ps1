@@ -1,4 +1,4 @@
-# Starts XVid on http://127.0.0.1:8000 (exposed to your phone through `tailscale serve`).
+# Starts XVid: HTTPS for the phone on the home Wi-Fi (after tools/setup_https.py), else this PC only.
 # Updates yt-dlp to the nightly build on every start, since X breaks it often.
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
@@ -12,4 +12,4 @@ if (-not (Test-Path $python)) {
 }
 & $python -m pip install -q -U --pre "yt-dlp[default]"
 
-& $python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+& $python -m app

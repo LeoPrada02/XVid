@@ -1,7 +1,8 @@
 """XVid: a video library shared between the PC and the phone.
 
 The PC downloads X videos with yt-dlp into one folder (the library). The phone
-browses it over Tailscale, streams videos, and saves the ones it wants.
+browses it over the home Wi-Fi (HTTPS, see tools/setup_https.py), streams
+videos, and saves the ones it wants.
 """
 
 import hashlib
@@ -25,6 +26,7 @@ from pydantic import BaseModel
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
+CA_CERT = ROOT / "certs" / "xvid-ca.crt"  # public root certificate the phone installs to trust XVid
 
 LIBRARY = Path(os.environ.get("XVID_LIBRARY") or Path.home() / "Videos" / "XVid").expanduser().resolve()
 TEMP = LIBRARY / ".tmp"
@@ -285,11 +287,24 @@ class LoginIn(BaseModel):
     token: str
 
 
+LOGIN_WINDOW = 300  # seconds
+LOGIN_MAX_FAILURES = 5
+login_failures: dict[str, list[float]] = {}
+
+
 @app.post("/api/login")
-def login(body: LoginIn, response: Response) -> dict:
+def login(body: LoginIn, request: Request, response: Response) -> dict:
+    ip = request.client.host if request.client else "?"
+    now = time.time()
+    recent = [t for t in login_failures.get(ip, []) if now - t < LOGIN_WINDOW]
+    if len(recent) >= LOGIN_MAX_FAILURES:
+        raise HTTPException(429, "Too many wrong tokens, wait a few minutes")
     if not secrets.compare_digest(body.token.strip().encode(), TOKEN.encode()):
+        login_failures[ip] = [*recent, now]
         raise HTTPException(401, "Wrong token")
-    response.set_cookie(COOKIE, SESSION, max_age=365 * 86400, httponly=True, samesite="lax")
+    login_failures.pop(ip, None)
+    response.set_cookie(COOKIE, SESSION, max_age=365 * 86400, httponly=True, samesite="lax",
+                        secure=request.url.scheme == "https")
     return {"ok": True}
 
 
@@ -300,9 +315,11 @@ def me(request: Request) -> dict:
 
 
 def is_local(request: Request) -> bool:
-    """True when the browser runs on this PC, not through `tailscale serve` (which adds these headers)."""
-    proxied = "x-forwarded-for" in request.headers or "tailscale-user-login" in request.headers
-    return bool(request.client) and request.client.host in ("127.0.0.1", "::1") and not proxied
+    """True when the browser runs on this PC (it connects from the same address it connects to)."""
+    if not request.client:
+        return False
+    server_host = (request.scope.get("server") or (None,))[0]
+    return request.client.host in ("127.0.0.1", "::1") or request.client.host == server_host
 
 
 @app.post("/api/open-folder", dependencies=[Depends(require_auth)])
@@ -318,6 +335,14 @@ def share_target(title: str = "", text: str = "", url: str = "") -> RedirectResp
     """Android share-sheet entry point (see share_target in the manifest)."""
     found = find_x_url(f"{url} {text} {title}") or ""
     return RedirectResponse(f"/?share={quote(found)}", status_code=303)
+
+
+@app.get("/ca.crt")
+def ca_certificate() -> FileResponse:
+    """The public root certificate, so the phone can trust XVid's HTTPS. Never the private key."""
+    if not CA_CERT.exists():
+        raise HTTPException(404, "HTTPS not set up: run tools/setup_https.py")
+    return FileResponse(CA_CERT, media_type="application/x-x509-ca-cert", filename="xvid-ca.crt")
 
 
 @app.get("/")

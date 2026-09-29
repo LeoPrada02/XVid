@@ -93,6 +93,8 @@ button, .button {
 .job-top { display: flex; justify-content: space-between; gap: 8px; font-size: 0.9rem; }
 .job-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .job .error { margin: 6px 0 0; font-size: 0.85rem; }
+.job-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.small-button { padding: 6px 12px; font-size: 0.9rem; }
 .bar { height: 4px; margin-top: 8px; border-radius: 2px; background: var(--border); overflow: hidden; }
 .bar > div { height: 100%; background: var(--accent); transition: width 0.3s; }
 .bar.indeterminate > div { width: 30%; animation: slide 1.2s infinite ease-in-out; }

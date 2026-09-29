@@ -161,7 +161,23 @@ function renderJob(job) {
       el("span", { className: "job-url", textContent: job.title || job.url.replace("https://", "") }),
       el("span", { className: job.status === "error" ? "error" : "muted", textContent: label })),
     bar,
-    job.error ? el("p", { className: "error", textContent: job.error }) : null);
+    job.error ? el("p", { className: "error", textContent: job.error }) : null,
+    job.status === "done" ? el("div", { className: "job-actions" }, ...job.files.map(saveLink)) : null);
+}
+
+function saveLink(name, i, files) {
+  const link = el("a", {
+    className: "button small-button",
+    href: `/media/${encodeURIComponent(name)}?download=true`,
+    download: name,
+    textContent: files.length > 1 ? `Save video ${i + 1} to phone` : "Save to phone",
+  });
+  link.addEventListener("click", savedToast);
+  return link;
+}
+
+function savedToast() {
+  toast("Saving to Downloads — it will appear in your gallery");
 }
 
 // ---------------------------------------------------------------- library
@@ -215,7 +231,7 @@ $("#player").addEventListener("close", () => {
 
 $("#close").addEventListener("click", () => $("#player").close());
 
-$("#save").addEventListener("click", () => toast("Saving to Downloads — it will appear in your gallery"));
+$("#save").addEventListener("click", savedToast);
 
 $("#delete").addEventListener("click", async () => {
   if (!current || !confirm(`Delete "${current.title}" from the PC?`)) return;
@@ -258,6 +274,6 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
 api("/api/me").then(showApp, (err) => {
   if (err.message !== "Not logged in") {
     $("#boot-message").textContent =
-      `Can't reach the PC (${err.message}). Check that run.ps1 is running and Tailscale is connected, then reload.`;
+      `Can't reach the PC (${err.message}). Check that run.ps1 is running and you're on the home Wi-Fi, then reload.`;
   }
 });
