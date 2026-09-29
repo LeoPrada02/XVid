@@ -15,7 +15,7 @@
     <h1>XVid</h1>
     <p id="boot-message" class="muted">
       Loading… If this message stays, XVid isn't being served by the PC.
-      Run <code>.\run.ps1</code> and open the address it prints
+      Start it with <code>start.cmd</code> and open the address it prints
       (not the <code>index.html</code> file directly).
     </p>
   </section>
@@ -33,10 +33,19 @@
   <main id="app" hidden>
     <header>
       <h1>XVid</h1>
-      <label class="button secondary" title="Upload a video from this device">
-        Upload<input id="upload" type="file" accept="video/*" hidden>
-      </label>
+      <div class="header-actions">
+        <button id="add-phone" class="secondary" hidden>Add a phone</button>
+        <label class="button secondary" title="Upload a video from this device">
+          Upload<input id="upload" type="file" accept="video/*" hidden>
+        </label>
+      </div>
     </header>
+
+    <div id="install-hint" class="card hint" hidden>
+      <p><b>Last step:</b> install XVid so it appears in X's <b>Share</b> menu.</p>
+      <button id="install">Install app</button>
+      <p id="install-manual" class="muted small" hidden>In Chrome's menu (⋮), tap <b>Install app</b> or <b>Add to Home screen</b>.</p>
+    </div>
 
     <form id="add-form" class="add">
       <input id="url" type="url" inputmode="url" placeholder="Paste an X link" autocomplete="off">
@@ -77,6 +86,20 @@
         <a id="source" class="button secondary" target="_blank" rel="noopener">Open on X</a>
         <button id="delete" class="danger">Delete</button>
         <button id="close" class="secondary">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="pair" class="pair">
+    <div class="player-body">
+      <h2>Add a phone</h2>
+      <p class="muted small">Connect the phone to the same Wi-Fi as this PC, then scan with its camera.</p>
+      <div id="pair-qr" class="qr"></div>
+      <p id="pair-status" class="muted small"></p>
+      <p class="small"><code id="pair-url"></code></p>
+      <div class="actions">
+        <button id="pair-new" class="secondary">New code</button>
+        <button id="pair-close">Done</button>
       </div>
     </div>
   </dialog>

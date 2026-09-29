@@ -1,95 +1,110 @@
 # XVid
 
-A video library shared between your PC and your Android phone.
+Download X (Twitter) videos to your PC and use them from your Android phone.
 
-- Share an X post from the X app → **XVid** → the PC downloads it with yt-dlp → tap **Save to phone**.
-- Browse and stream the library from the phone (same Wi-Fi as the PC, PC on).
-- **Save to phone** keeps a copy in your gallery, so you have it even when the PC is off or you're away.
-- **Upload** sends a video from the phone to the PC library.
+- In the X app: **Share → XVid**. Your PC downloads the video, then tap **Save to phone**.
+- Browse and watch everything your PC downloaded, from the phone.
+- Saved videos stay in your phone's gallery, even when the PC is off or you're away.
+- **Upload** sends a video from the phone to the PC.
 
-```
-Phone (XVid installed app) ──home Wi-Fi, HTTPS──► PC :8443 FastAPI ──► yt-dlp ──► library folder
-```
+Everything stays on your home Wi-Fi. Nothing is reachable from the internet.
 
-Everything stays on your home network. Nothing is reachable from the internet.
+**Requirements:** a Windows 10/11 PC and an Android phone with Chrome, on the same Wi-Fi.
 
-## PC setup (Windows, one time)
+## Setup
 
-```powershell
-winget install Gyan.FFmpeg           # best quality (merges separate audio/video); optional
-winget install FiloSottile.mkcert    # makes the HTTPS certificate; open a NEW terminal after
-python tools\setup_https.py
-```
+### 1. On the PC
 
-Android only lets XVid appear in the **Share** menu if it's served over HTTPS the phone trusts.
-`setup_https.py` creates a private certificate authority on this PC (Windows asks you to confirm)
-and a certificate for the PC's Wi-Fi address, saved in `certs/` (git-ignored).
-It then prints the remaining steps:
+1. Download this repo (**Code → Download ZIP** and unzip it, or `git clone`).
+2. Double-click **`setup.cmd`** and answer the questions (Enter accepts the default).
 
-- **Firewall** (admin PowerShell, once), and make sure your Wi-Fi is a *Private* network:
-  ```powershell
-  New-NetFirewallRule -DisplayName XVid -Direction Inbound -Protocol TCP -LocalPort 8443 -Action Allow -Profile Private
-  ```
-- **Fixed address:** in your router, reserve the PC's IP (DHCP reservation). The phone app is tied to
-  that address; if it changes, `run.ps1` warns you and you'd need to rerun the setup and reinstall on the phone.
+It installs what's needed (Python, yt-dlp, mkcert and optionally ffmpeg), prepares phone access,
+and opens XVid in your browser. Windows asks for permission twice: once to trust XVid's
+certificate, and once to let your phone through the firewall.
 
-Start XVid:
+### 2. On the phone
 
-```powershell
-.\run.ps1
-```
-
-This creates a virtualenv in `%LOCALAPPDATA%\XVid\venv` (outside OneDrive), updates yt-dlp to nightly,
-and prints the addresses to use: `https://localhost:8443` on the PC and `https://<PC IP>:8443` on the phone.
-On the first run it creates a **token** in `token.txt`; you log in with it once per device.
-Without `certs/`, it runs on `http://127.0.0.1:8000`, reachable from this PC only.
-
-## Phone setup (Android, one time, on the home Wi-Fi)
-
-1. **Trust the certificate.** In Chrome open `https://<PC IP>:8443/ca.crt`. It warns the first time:
-   *Advanced → Proceed*. Then *Settings → Security & privacy → More security settings →
-   Encryption & credentials → Install a certificate → CA certificate* → pick `xvid-ca.crt`.
-   (Menu names vary a bit by brand; search Settings for "CA certificate".)
-2. Open `https://<PC IP>:8443` in **Chrome** and log in with the token.
-3. Chrome menu (⋮) → **Add to Home screen** → **Install**.
-4. In the X app: Share → **XVid**. If it's not listed, tap **More** and pin it.
+1. In XVid on the PC, click **Add a phone**.
+2. On the phone, connect to the same Wi-Fi and scan the QR code with the camera.
+3. Follow the page that opens:
+   - **Trust your PC:** download the certificate and install it in Settings.
+     This is the only manual part, about 6 taps. Android requires it to be done by hand.
+   - **Open XVid:** logs the phone in automatically.
+   - **Install app:** adds XVid to the home screen and the **Share** menu.
+4. In the X app, open a post with a video: **Share → XVid**. If it's not listed, tap **More** and pin it.
 
 Saved videos go to **Downloads**. Google Photos shows them under *Library → Download*.
 
-The certificate only makes your phone trust sites signed by *your PC's* mkcert authority. Its private
-key stays in mkcert's folder on the PC (`mkcert -CAROOT`); don't share that folder.
-To undo: remove the certificate on the phone (*Encryption & credentials → User credentials*)
-and run `mkcert -uninstall` on the PC.
+## Day to day
 
-## Configuration (environment variables)
+| | |
+|---|---|
+| `setup.cmd` | Run again anytime to change answers, or if the PC's Wi-Fi address changed |
+| `start.cmd` | Start or restart XVid in a visible window (useful to see errors) |
+| `stop.cmd` | Stop XVid |
+
+If you chose to start XVid with Windows, it runs in the background after you log in.
+Its log is in `%LOCALAPPDATA%\XVid\xvid.log`.
+
+**Reserve the PC's address in your router** (DHCP reservation; setup prints the address).
+Installed phones point to that address. If it changes, XVid warns you: run `setup.cmd` again
+and add the phone again.
+
+## Sensitive, protected and subscriber-only posts
+
+yt-dlp needs to be logged in as you. It can only download what **your account** can see,
+so subscriber-only videos need an active subscription on that account.
+
+- **Easiest:** log in to X in **Firefox**, then set the user environment variable
+  `XVID_COOKIES_BROWSER` to `firefox` (Start → "Edit environment variables for your account")
+  and restart XVid. Chrome and Edge cookies can't be read on Windows (app-bound encryption).
+- **Or:** export a `cookies.txt` with a browser extension and set `XVID_COOKIES_FILE` to its path.
+
+Cookies are your X session. Keep them private (`cookies.txt` is git-ignored).
+Heavy automated use can get an account flagged.
+
+## Configuration
+
+User environment variables, read when XVid starts:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `XVID_LIBRARY` | `~\Videos\XVid` | Library folder |
-| `XVID_TOKEN` | contents of `token.txt` | Login token |
-| `XVID_COOKIES_BROWSER` | — | e.g. `firefox`: use that browser's X login |
-| `XVID_COOKIES_FILE` | — | Path to a Netscape `cookies.txt` |
+| `XVID_LIBRARY` | `%USERPROFILE%\Videos\XVid` | Where videos are saved |
+| `XVID_TOKEN` | contents of `token.txt` | Password for logging in by hand (pairing makes it unnecessary) |
+| `XVID_COOKIES_BROWSER` | none | e.g. `firefox`: use that browser's X login |
+| `XVID_COOKIES_FILE` | none | Path to a Netscape `cookies.txt` |
 
-### Sensitive, protected and subscriber-only posts
+## How it works
 
-yt-dlp needs to be logged in as you. It can only download what **your account** can see, so subscriber-only videos need an active subscription on that account.
+```
+Phone (installed XVid app) --home Wi-Fi--> PC :8443 HTTPS  the app (FastAPI) --> yt-dlp --> library folder
+Phone before trusting the PC -----------> PC :8000 HTTP   only the setup page and the certificate
+```
 
-- **Easiest:** log in to X in **Firefox**, then `$env:XVID_COOKIES_BROWSER = "firefox"; .\run.ps1`.
-  Chrome and Edge cookies can't be read on Windows (app-bound encryption).
-- **Or:** export a `cookies.txt` with a browser extension and set `XVID_COOKIES_FILE`.
+- **Why a certificate:** Android only puts web apps in the Share menu if they're served over
+  HTTPS the phone trusts. `setup.cmd` uses [mkcert](https://github.com/FiloSottile/mkcert) to
+  create a private certificate authority on the PC and a certificate for the PC's Wi-Fi address.
+  The phone installs only the authority's *public* certificate. Its private key never leaves
+  the PC (in `mkcert -CAROOT`); don't share that folder.
+- **Pairing:** the QR code holds a one-time code (10 minutes). It's in the URL `#fragment`,
+  so it's never sent over the plain-HTTP connection.
+- **Security:** the PC itself is always trusted. Other devices need pairing (or the token),
+  and repeated wrong attempts get blocked for 5 minutes.
+- yt-dlp updates to its nightly build on every start, because X breaks it often.
+- Python packages live in `%LOCALAPPDATA%\XVid\venv`, outside the repo (and OneDrive).
 
-Cookies are your X session. Keep them private (`cookies.txt` is git-ignored). Heavy automated use can get an account flagged.
-
-## Start automatically with Windows
-
-Task Scheduler → *Create Task* → trigger **At log on** → action:
-`powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File "<path>\run.ps1"`.
-Set the cookie variables as user environment variables (System → Environment Variables) so the task sees them.
+**Uninstall:** run `stop.cmd`. Delete the repo folder and `%LOCALAPPDATA%\XVid`, remove
+`XVid` from the Startup folder (`shell:startup`), run `mkcert -uninstall`, and on the phone
+remove the certificate (*Settings → Encryption & credentials → User credentials*).
 
 ## Troubleshooting
 
-- **A download fails:** yt-dlp updates on every `run.ps1` start. Restart it. X breaks yt-dlp often and fixes land in nightly first.
-- **"Can't reach the PC":** the PC is off, the server isn't running, the phone isn't on the home Wi-Fi,
-  the firewall rule is missing, or the PC's address changed (see `run.ps1`'s warning).
-- **Chrome shows a certificate warning on the app page:** the CA certificate isn't installed on the phone (phone step 1).
-- **XVid missing from the share menu:** it must be *installed* from Chrome (phone step 3), opened over `https://`.
+- **A download fails:** restart XVid (`start.cmd`) to get the latest yt-dlp. For sensitive or
+  subscriber-only posts, see the cookies section above.
+- **The phone says "Can't reach the PC":** the PC is off or XVid isn't running, the phone isn't
+  on the same Wi-Fi, or the PC's address changed (run `setup.cmd` again).
+- **The setup page never shows "Certificate installed":** check it's under *User credentials*
+  in the phone's settings, then use *Continue anyway*. If Chrome still warns, reinstall the certificate.
+- **XVid isn't in the Share menu:** it must be *installed* (the **Install app** button,
+  or Chrome menu ⋮ → **Install app**).
+- **Windows asked whether Python can use networks:** allow it on **Private** networks.

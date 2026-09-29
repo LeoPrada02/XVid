@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1115">
+  <title>Connect your phone · XVid</title>
+  <link rel="icon" href="/static/icon-192.png">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="setup">
+    <h1>Connect your phone to XVid</h1>
+    <p class="muted">Two quick steps, only once. Keep this page open.</p>
+
+    <p id="no-code" class="card warning-card" hidden>
+      This page needs a pairing code. On the PC, open XVid, tap <b>Add a phone</b>, and scan the QR code.
+    </p>
+
+    <ol class="steps">
+      <li class="card" id="step-cert">
+        <h2>1. Trust your PC</h2>
+        <p>Your phone needs XVid's certificate so it can talk to your PC securely.</p>
+        <a class="button" href="/ca.crt" download="xvid-ca.crt">Download certificate</a>
+        <p>Then install it:</p>
+        <ol class="small">
+          <li>Open <b>Settings</b> and search for <b>CA certificate</b>.
+            <span class="muted">(Usually Security &amp; privacy → More security settings → Encryption &amp; credentials → Install a certificate → CA certificate.)</span></li>
+          <li>Tap <b>Install anyway</b> and pick <b>xvid-ca.crt</b> from Downloads.</li>
+          <li>Come back to this page.</li>
+        </ol>
+        <p id="cert-status" class="status muted">Waiting for the certificate…</p>
+      </li>
+
+      <li class="card" id="step-open">
+        <h2>2. Open XVid</h2>
+        <p>Logs you in automatically. Then install it so it shows up in X's <b>Share</b> menu.</p>
+        <a id="open" class="button disabled" aria-disabled="true">Open XVid</a>
+        <p class="small"><a id="open-anyway" href="#">Certificate installed but this doesn't update? Continue anyway</a></p>
+      </li>
+    </ol>
+  </main>
+
+  <script>
+    const code = new URLSearchParams(location.hash.slice(1)).get("pair");
+    const appUrl = `https://${location.hostname}:8443/` + (code ? `#pair=${encodeURIComponent(code)}` : "");
+    const open = document.getElementById("open");
+    open.href = appUrl;
+    document.getElementById("open-anyway").href = appUrl;
+    document.getElementById("no-code").hidden = !!code;
+
+    function ready() {
+      document.getElementById("cert-status").textContent = "✓ Certificate installed";
+      document.getElementById("cert-status").className = "status ok";
+      open.classList.remove("disabled");
+      open.removeAttribute("aria-disabled");
+    }
+
+    // Succeeds only once the phone trusts the certificate; an untrusted one makes fetch fail.
+    async function check() {
+      try {
+        await fetch(`https://${location.hostname}:8443/api/ping`, { mode: "no-cors", cache: "no-store" });
+        ready();
+      } catch {
+        setTimeout(check, 2000);
+      }
+    }
+    check();
+  </script>
+</body>
+</html>

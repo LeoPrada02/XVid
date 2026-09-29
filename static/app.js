@@ -10,7 +10,7 @@ let current = null; // video open in the player
 async function api(path, opts = {}) {
   const headers = typeof opts.body === "string" ? { "Content-Type": "application/json" } : {};
   const res = await fetch(path, { ...opts, headers });
-  if (res.status === 401 && path !== "/api/login") {
+  if (res.status === 401 && path !== "/api/login" && path !== "/api/pair/redeem") {
     showLogin();
     throw new Error("Not logged in");
   }
@@ -72,6 +72,12 @@ async function showApp() {
   $("#warning").hidden = !warnings.length;
   $("#library-path").textContent = me.library;
   $("#open-folder").hidden = !me.local;
+  $("#add-phone").hidden = !me.local;
+  $("#install-hint").hidden = me.local || isInstalled();
+  if (me.local && location.hash === "#add-phone") {
+    history.replaceState(null, "", "/");
+    openPairing();
+  }
 
   loadLibrary();
   refreshJobs();
@@ -267,13 +273,96 @@ $("#upload").addEventListener("change", () => {
   xhr.send(form);
 });
 
+// ---------------------------------------------------------------- add a phone (PC only)
+
+let pairTimer;
+
+async function openPairing() {
+  if (!$("#pair").open) $("#pair").showModal();
+  $("#pair-qr").replaceChildren();
+  $("#pair-status").textContent = "Creating a code…";
+  clearInterval(pairTimer);
+  let pairing;
+  try {
+    pairing = await api("/api/pair", { method: "POST" });
+  } catch (err) {
+    $("#pair-status").textContent = err.message;
+    return;
+  }
+  // The SVG comes from our own server (the qrcode library), not from user input.
+  $("#pair-qr").innerHTML = pairing.svg;
+  $("#pair-url").textContent = pairing.url;
+  const expires = Date.now() + pairing.expires_in * 1000;
+  const tick = () => {
+    const left = Math.round((expires - Date.now()) / 1000);
+    if (left <= 0) {
+      clearInterval(pairTimer);
+      $("#pair-qr").replaceChildren();
+      $("#pair-status").textContent = "This code expired. Tap New code.";
+      return;
+    }
+    $("#pair-status").textContent = `One-time code, expires in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}.`;
+  };
+  tick();
+  pairTimer = setInterval(tick, 1000);
+}
+
+$("#add-phone").addEventListener("click", openPairing);
+$("#pair-new").addEventListener("click", openPairing);
+$("#pair-close").addEventListener("click", () => $("#pair").close());
+$("#pair").addEventListener("close", () => clearInterval(pairTimer));
+
+// ---------------------------------------------------------------- install (phone)
+
+let installPrompt = null;
+
+function isInstalled() {
+  return matchMedia("(display-mode: standalone)").matches;
+}
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  installPrompt = e;
+});
+
+$("#install").addEventListener("click", async () => {
+  if (!installPrompt) {
+    $("#install-manual").hidden = false; // Chrome didn't offer its prompt; point to the menu instead
+    return;
+  }
+  installPrompt.prompt();
+  const { outcome } = await installPrompt.userChoice;
+  installPrompt = null;
+  if (outcome === "accepted") $("#install-hint").hidden = true;
+});
+
+window.addEventListener("appinstalled", () => ($("#install-hint").hidden = true));
+
 // ---------------------------------------------------------------- start
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
 
-api("/api/me").then(showApp, (err) => {
-  if (err.message !== "Not logged in") {
-    $("#boot-message").textContent =
-      `Can't reach the PC (${err.message}). Check that run.ps1 is running and you're on the home Wi-Fi, then reload.`;
+async function start() {
+  const code = new URLSearchParams(location.hash.slice(1)).get("pair");
+  if (code) {
+    history.replaceState(null, "", "/");
+    try {
+      await api("/api/pair/redeem", { method: "POST", body: JSON.stringify({ code }) });
+      toast("Phone connected to XVid");
+    } catch (err) {
+      toast(err.message);
+    }
   }
-});
+  try {
+    await api("/api/me");
+  } catch (err) {
+    if (err.message !== "Not logged in") {
+      $("#boot-message").textContent =
+        `Can't reach the PC (${err.message}). Check that XVid is running on the PC and you're on the same Wi-Fi, then reload.`;
+    }
+    return;
+  }
+  showApp();
+}
+
+start();

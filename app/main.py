@@ -18,15 +18,18 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import quote, urlparse
 
+import qrcode
+import qrcode.image.svg
 import yt_dlp
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from app.network import CA_FILE, HTTP_PORT, cert_ip, https_ready
+
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
-CA_CERT = ROOT / "certs" / "xvid-ca.crt"  # public root certificate the phone installs to trust XVid
 
 LIBRARY = Path(os.environ.get("XVID_LIBRARY") or Path.home() / "Videos" / "XVid").expanduser().resolve()
 TEMP = LIBRARY / ".tmp"
@@ -63,6 +66,9 @@ app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 
 def require_auth(request: Request) -> None:
+    """The PC itself is always trusted (it can read token.txt anyway); other devices need the session cookie."""
+    if is_local(request):
+        return
     if not secrets.compare_digest(request.cookies.get(COOKIE, "").encode(), SESSION.encode()):
         raise HTTPException(401, "Not logged in")
 
@@ -292,26 +298,78 @@ LOGIN_MAX_FAILURES = 5
 login_failures: dict[str, list[float]] = {}
 
 
-@app.post("/api/login")
-def login(body: LoginIn, request: Request, response: Response) -> dict:
+def guard_attempts(request: Request) -> str:
+    """Block a device after too many wrong tokens or pairing codes. Returns its IP."""
     ip = request.client.host if request.client else "?"
     now = time.time()
-    recent = [t for t in login_failures.get(ip, []) if now - t < LOGIN_WINDOW]
-    if len(recent) >= LOGIN_MAX_FAILURES:
-        raise HTTPException(429, "Too many wrong tokens, wait a few minutes")
-    if not secrets.compare_digest(body.token.strip().encode(), TOKEN.encode()):
-        login_failures[ip] = [*recent, now]
-        raise HTTPException(401, "Wrong token")
+    login_failures[ip] = [t for t in login_failures.get(ip, []) if now - t < LOGIN_WINDOW]
+    if len(login_failures[ip]) >= LOGIN_MAX_FAILURES:
+        raise HTTPException(429, "Too many wrong attempts, wait a few minutes")
+    return ip
+
+
+def start_session(ip: str, request: Request, response: Response) -> dict:
     login_failures.pop(ip, None)
     response.set_cookie(COOKIE, SESSION, max_age=365 * 86400, httponly=True, samesite="lax",
                         secure=request.url.scheme == "https")
     return {"ok": True}
 
 
+@app.post("/api/login")
+def login(body: LoginIn, request: Request, response: Response) -> dict:
+    ip = guard_attempts(request)
+    if not secrets.compare_digest(body.token.strip().encode(), TOKEN.encode()):
+        login_failures[ip].append(time.time())
+        raise HTTPException(401, "Wrong token")
+    return start_session(ip, request, response)
+
+
+# Pairing: the PC shows a QR code with a one-time code, so the phone logs in without typing the token.
+PAIR_TTL = 600  # seconds
+pair_codes: dict[str, float] = {}  # code -> expiry time
+
+
+@app.post("/api/pair", dependencies=[Depends(require_auth)])
+def create_pairing(request: Request) -> dict:
+    if not is_local(request):
+        raise HTTPException(403, "Only available on the PC")
+    if not https_ready():
+        raise HTTPException(409, "Phone access isn't set up yet. Run setup.cmd on the PC.")
+    now = time.time()
+    for code in [c for c, expiry in pair_codes.items() if expiry < now]:
+        del pair_codes[code]
+    code = secrets.token_urlsafe(16)
+    pair_codes[code] = now + PAIR_TTL
+    # The code goes in the #fragment, which browsers never send over the (plain HTTP) network.
+    url = f"http://{cert_ip()}:{HTTP_PORT}/setup#pair={code}"
+    qr = qrcode.make(url, image_factory=qrcode.image.svg.SvgPathImage, border=2)
+    return {"url": url, "svg": qr.to_string(encoding="unicode"), "expires_in": PAIR_TTL}
+
+
+class PairIn(BaseModel):
+    code: str
+
+
+@app.post("/api/pair/redeem")
+def redeem_pairing(body: PairIn, request: Request, response: Response) -> dict:
+    ip = guard_attempts(request)
+    expiry = pair_codes.pop(body.code, None)
+    if expiry is None or expiry < time.time():
+        login_failures[ip].append(time.time())
+        raise HTTPException(401, "This pairing code expired or was already used. Scan a new QR code on the PC.")
+    return start_session(ip, request, response)
+
+
+@app.get("/api/ping")
+def ping() -> dict:
+    """Unauthenticated; the phone setup page uses it to detect when the certificate is trusted."""
+    return {"ok": True}
+
+
 @app.get("/api/me", dependencies=[Depends(require_auth)])
 def me(request: Request) -> dict:
     return {"ok": True, "cookies": bool(COOKIES_BROWSER or COOKIES_FILE), "ffmpeg": HAS_FFMPEG,
-            "library": str(LIBRARY), "local": is_local(request)}
+            "library": str(LIBRARY), "local": is_local(request), "phone_ready": https_ready()}
 
 
 def is_local(request: Request) -> bool:
@@ -340,9 +398,9 @@ def share_target(title: str = "", text: str = "", url: str = "") -> RedirectResp
 @app.get("/ca.crt")
 def ca_certificate() -> FileResponse:
     """The public root certificate, so the phone can trust XVid's HTTPS. Never the private key."""
-    if not CA_CERT.exists():
-        raise HTTPException(404, "HTTPS not set up: run tools/setup_https.py")
-    return FileResponse(CA_CERT, media_type="application/x-x509-ca-cert", filename="xvid-ca.crt")
+    if not CA_FILE.exists():
+        raise HTTPException(404, "Phone access isn't set up yet. Run setup.cmd on the PC.")
+    return FileResponse(CA_FILE, media_type="application/x-x509-ca-cert", filename="xvid-ca.crt")
 
 
 @app.get("/")
