@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1115">
+  <title>XVid</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/static/icon-192.png">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <section id="boot" class="card narrow">
+    <h1>XVid</h1>
+    <p id="boot-message" class="muted">
+      Loading… If this message stays, XVid isn't being served by the PC.
+      Run <code>.\run.ps1</code> and open <code>http://127.0.0.1:8000</code>
+      (not the <code>index.html</code> file directly).
+    </p>
+  </section>
+
+  <section id="login" hidden>
+    <form id="login-form" class="card narrow">
+      <h1>XVid</h1>
+      <p class="muted">Enter the token printed in the PC's terminal.</p>
+      <input id="token" type="password" autocomplete="current-password" placeholder="Token" required>
+      <button type="submit">Log in</button>
+      <p id="login-error" class="error" hidden></p>
+    </form>
+  </section>
+
+  <main id="app" hidden>
+    <header>
+      <h1>XVid</h1>
+      <label class="button secondary" title="Upload a video from this device">
+        Upload<input id="upload" type="file" accept="video/*" hidden>
+      </label>
+    </header>
+
+    <form id="add-form" class="add">
+      <input id="url" type="url" inputmode="url" placeholder="Paste an X link" autocomplete="off">
+      <button type="button" id="paste" class="secondary">Paste</button>
+      <button type="submit">Download</button>
+    </form>
+    <p id="warning" class="muted small" hidden></p>
+
+    <section id="jobs-section" hidden>
+      <div class="section-head">
+        <h2>Downloads</h2>
+        <button id="clear-jobs" class="link">Clear finished</button>
+      </div>
+      <ul id="jobs"></ul>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Library</h2>
+        <span id="count" class="muted small"></span>
+      </div>
+      <div class="folder">
+        <code id="library-path" class="muted small"></code>
+        <button id="open-folder" class="link" hidden>Open folder</button>
+      </div>
+      <p id="empty" class="muted" hidden>No videos yet. Share an X post to XVid, or paste a link above.</p>
+      <div id="grid" class="grid"></div>
+    </section>
+  </main>
+
+  <dialog id="player">
+    <video id="video" controls playsinline preload="metadata"></video>
+    <div class="player-body">
+      <p id="player-title"></p>
+      <p id="player-meta" class="muted small"></p>
+      <div class="actions">
+        <a id="save" class="button" download>Save to phone</a>
+        <a id="source" class="button secondary" target="_blank" rel="noopener">Open on X</a>
+        <button id="delete" class="danger">Delete</button>
+        <button id="close" class="secondary">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div id="toast" role="status" hidden></div>
+</body>
+</html>
