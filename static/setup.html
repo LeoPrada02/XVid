@@ -42,8 +42,12 @@
   </main>
 
   <script>
-    const code = new URLSearchParams(location.hash.slice(1)).get("pair");
-    const appUrl = `https://${location.hostname}:8443/` + (code ? `#pair=${encodeURIComponent(code)}` : "");
+    // The QR code's #fragment: the pairing code, the home PC (where the app is installed from) and this PC.
+    const params = new URLSearchParams(location.hash.slice(1));
+    const code = params.get("pair");
+    const thisPc = params.get("pc") || `https://${location.hostname}:8443`;
+    const home = params.get("home") || thisPc;
+    const appUrl = `${home}/` + (code ? `#${new URLSearchParams({ pair: code, pc: thisPc })}` : "");
     const open = document.getElementById("open");
     open.href = appUrl;
     document.getElementById("open-anyway").href = appUrl;
@@ -59,7 +63,7 @@
     // Succeeds only once the phone trusts the certificate; an untrusted one makes fetch fail.
     async function check() {
       try {
-        await fetch(`https://${location.hostname}:8443/api/ping`, { mode: "no-cors", cache: "no-store" });
+        await fetch(`${thisPc}/api/ping`, { mode: "no-cors", cache: "no-store" });
         ready();
       } catch {
         setTimeout(check, 2000);

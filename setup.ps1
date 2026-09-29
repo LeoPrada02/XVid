@@ -98,6 +98,21 @@ $phone = Ask "Set up phone access? (needed to use XVid from your phone)" $true
 if ($phone) {
     if (-not (Have "mkcert")) { Install-Package "FiloSottile.mkcert" "mkcert" }
     if (-not (Have "mkcert")) { throw "mkcert was installed but this window can't see it yet. Close it and run setup.cmd again." }
+
+    $currentName = & $VenvPython -c "from app import config; print(config.load()['name'])"
+    $name = Read-Host "What should this PC be called on the phone? (Enter = $currentName)"
+    if ([string]::IsNullOrWhiteSpace($name)) { $name = $currentName }
+    $configureArgs = @("tools\configure.py", "--name", $name)
+    $q = "Is XVid already set up on another PC in your home? Joining it lets one phone app use both PCs."
+    if (Ask $q $false) {
+        Write-Host "On that PC, open XVid and click 'Add a PC'. XVid must be running there."
+        $code = Read-Host "Paste the code here"
+        $configureArgs += @("--join", $code.Trim())
+    }
+    Stop-XVid  # joining replaces the token and certificate authority this PC's XVid uses
+    & $VenvPython @configureArgs
+    Check "configuring this PC"
+
     & $VenvPython tools\setup_https.py
     Check "creating the certificate"
 
@@ -153,7 +168,7 @@ Stop-XVid
 Start-Process powershell -WindowStyle Hidden -ArgumentList @(
     "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$PSScriptRoot\run.ps1`"", "-Background")
 
-$https = Test-Path "certs\xvid.pem"
+$https = Test-Path "$XVidData\certs\xvid.pem"
 $port = if ($https) { 8443 } else { 8000 }
 $url = if ($https) { "https://localhost:8443/#add-phone" } else { "http://127.0.0.1:8000/" }
 if (Wait-Port $port 90) {
@@ -166,7 +181,7 @@ if (Wait-Port $port 90) {
 Write-Host ""
 Write-Host "All set." -ForegroundColor Green
 if ($https) {
-    $ip = (Get-Content "certs\ip.txt").Trim()
+    $ip = (Get-Content "$XVidData\certs\ip.txt").Trim()
     Write-Host " - Add a phone: in XVid, click 'Add a phone' and scan the QR code with the phone."
     Write-Host " - Tip: in your router, reserve $ip for this PC so the address never changes."
 }

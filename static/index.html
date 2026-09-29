@@ -14,7 +14,7 @@
   <section id="boot" class="card narrow">
     <h1>XVid</h1>
     <p id="boot-message" class="muted">
-      Loading… If this message stays, XVid isn't being served by the PC.
+      Looking for your PCs… If this message stays, XVid isn't being served by the PC.
       Start it with <code>start.cmd</code> and open the address it prints
       (not the <code>index.html</code> file directly).
     </p>
@@ -34,6 +34,7 @@
     <header>
       <h1>XVid</h1>
       <div class="header-actions">
+        <button id="add-pc" class="secondary" hidden>Add a PC</button>
         <button id="add-phone" class="secondary" hidden>Add a phone</button>
         <label class="button secondary" title="Upload a video from this device">
           Upload<input id="upload" type="file" accept="video/*" hidden>
@@ -53,6 +54,9 @@
       <button type="button" id="to-pc" class="secondary" hidden>To PC</button>
       <button type="submit" id="download">Download</button>
     </form>
+    <label id="target-row" class="target muted small" hidden>
+      "To PC" and uploads go to <select id="target"></select>
+    </label>
     <p id="warning" class="muted small" hidden></p>
 
     <section id="jobs-section" hidden>
@@ -63,18 +67,8 @@
       <ul id="jobs"></ul>
     </section>
 
-    <section>
-      <div class="section-head">
-        <h2>PC library</h2>
-        <span id="count" class="muted small"></span>
-      </div>
-      <div class="folder">
-        <code id="library-path" class="muted small"></code>
-        <button id="open-folder" class="link" hidden>Open folder</button>
-      </div>
-      <p id="empty" class="muted" hidden>No videos in the PC library yet.</p>
-      <div id="grid" class="grid"></div>
-    </section>
+    <div id="libraries"></div>
+    <p id="offline" class="muted small" hidden></p>
   </main>
 
   <dialog id="player">
@@ -101,6 +95,23 @@
       <div class="actions">
         <button id="pair-new" class="secondary">New code</button>
         <button id="pair-close">Done</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="join" class="pair">
+    <div class="player-body">
+      <h2>Add a PC</h2>
+      <p class="muted small">
+        Lets your phone's XVid app use another PC too. On the other PC, run <b>setup.cmd</b>,
+        answer <b>yes</b> when it asks about another PC, and paste this code. XVid must keep running here meanwhile.
+      </p>
+      <textarea id="join-code" class="code-box" rows="4" readonly></textarea>
+      <p id="join-status" class="muted small"></p>
+      <div class="actions">
+        <button id="join-copy">Copy code</button>
+        <button id="join-new" class="secondary">New code</button>
+        <button id="join-close" class="secondary">Done</button>
       </div>
     </div>
   </dialog>

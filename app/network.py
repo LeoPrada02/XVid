@@ -1,16 +1,29 @@
-"""Where XVid listens, and the HTTPS certificate that lets the phone connect over Wi-Fi."""
+"""Where XVid keeps this PC's state, where it listens, and the HTTPS certificate that lets the phone connect."""
 
+import os
+import shutil
 import socket
 from pathlib import Path
 
-CERTS = Path(__file__).resolve().parent.parent / "certs"
+ROOT = Path(__file__).resolve().parent.parent
+# This PC's own state (token, certificates, name, other PCs), outside the repo: the repo may be synced
+# between PCs (e.g. OneDrive), and each PC needs its own.
+DATA = Path(os.environ.get("XVID_DATA") or Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "XVid")
+DATA.mkdir(parents=True, exist_ok=True)
+for _name in ("certs", "token.txt", "xvid.json"):  # older versions kept these in the repo folder
+    if (ROOT / _name).exists() and not (DATA / _name).exists():
+        shutil.move(str(ROOT / _name), str(DATA / _name))
+
+TOKEN_FILE = DATA / "token.txt"
+CONFIG_FILE = DATA / "xvid.json"
+CERTS = DATA / "certs"
 CERT_FILE = CERTS / "xvid.pem"
 KEY_FILE = CERTS / "xvid-key.pem"
 CA_FILE = CERTS / "xvid-ca.crt"
 IP_FILE = CERTS / "ip.txt"  # the Wi-Fi address the certificate was made for
 
-HTTPS_PORT = 8443
-HTTP_PORT = 8000
+HTTPS_PORT = int(os.environ.get("XVID_HTTPS_PORT") or 8443)
+HTTP_PORT = int(os.environ.get("XVID_HTTP_PORT") or 8000)
 
 
 def lan_ip() -> str:

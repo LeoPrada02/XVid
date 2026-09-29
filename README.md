@@ -52,6 +52,24 @@ Its log is in `%LOCALAPPDATA%\XVid\xvid.log`.
 Installed phones point to that address. If it changes, XVid warns you: run `setup.cmd` again
 and add the phone again.
 
+## More than one PC
+
+One phone app can use several PCs, for example a desktop and a laptop. It works with whichever
+ones are on: each PC that's on shows its own library, and downloads to the phone go through any of them.
+
+1. Pick a **home PC**, ideally the one that's on most often, and set it up and pair the phone as above.
+   The phone installs the app from it. After that, the app opens even when the home PC is off.
+2. On the home PC, open XVid and click **Add a PC**. You get a one-time code (10 minutes).
+3. On the other PC, get XVid (download or clone this repo, or let OneDrive sync it) and run
+   **`setup.cmd`**. When it asks *"Is XVid already set up on another PC?"*, answer **yes** and paste the code.
+4. Open the XVid app on the phone once while the home PC is on, so it learns about the new PC.
+
+The other PC gets the home PC's certificate authority and login, so the phone trusts it and is
+already logged in: no second certificate and no second app. With both PCs on, **To PC** and
+**Upload** go to the PC chosen under the link box.
+
+Reserve **both** PCs' addresses in your router.
+
 ## Sensitive, protected and subscriber-only posts
 
 yt-dlp needs to be logged in as you. It can only download what **your account** can see,
@@ -64,6 +82,7 @@ so subscriber-only videos need an active subscription on that account.
   save the file as `cookies.txt` in XVid's folder, and restart XVid (`start.cmd`). That's it.
 
 Cookies are your X session. Keep them private (`cookies.txt` is git-ignored).
+If XVid's folder is synced between your PCs (e.g. OneDrive), they all use the same `cookies.txt`.
 Heavy automated use can get an account flagged.
 
 ## Configuration
@@ -76,6 +95,9 @@ User environment variables, read when XVid starts:
 | `XVID_TOKEN` | contents of `token.txt` | Password for logging in by hand (pairing makes it unnecessary) |
 | `XVID_COOKIES_BROWSER` | none | e.g. `firefox`: use that browser's X login |
 | `XVID_COOKIES_FILE` | `cookies.txt` in XVid's folder, if present | Path to a Netscape `cookies.txt` |
+| `XVID_DATA` | `%LOCALAPPDATA%\XVid` | This PC's token, certificates, name and list of PCs |
+| `XVID_HTTPS_PORT` / `XVID_HTTP_PORT` | `8443` / `8000` | Ports, if those are taken |
+| `XVID_PHONE_VIEW` | off | `1` shows the phone's view in the PC's browser (for development) |
 
 ## How it works
 
@@ -91,15 +113,21 @@ Phone before trusting the PC -----------> PC :8000 HTTP   only the setup page an
   the PC (in `mkcert -CAROOT`); don't share that folder.
 - **Pairing:** the QR code holds a one-time code (10 minutes). It's in the URL `#fragment`,
   so it's never sent over the plain-HTTP connection.
-- **Security:** the PC itself is always trusted. Other devices need pairing (or the token),
-  and repeated wrong attempts get blocked for 5 minutes.
+- **Security:** the PC's own browser is trusted, but only on XVid's own pages, so other websites
+  can't use it. Other devices need pairing (or the token), and repeated wrong attempts get blocked
+  for 5 minutes. The phone app sends its login as a header; video and thumbnail links carry a
+  separate key that only opens media.
+- **Several PCs:** the app keeps a copy of itself on the phone (a service worker) and a list of
+  your PCs, and asks each one whether it's on. Joining a PC copies the home PC's certificate
+  authority and token over HTTPS. The code pins the home PC's certificate, so nothing is sent to an impostor.
 - **Phone downloads:** a browser can't run yt-dlp, so the PC looks the video up and streams
   it straight through to the phone. Nothing is saved on the PC. If X only offers separate
   audio and video, the PC merges them in a temporary folder and deletes it within 30 minutes.
 - **The library folder only holds videos.** Thumbnails, video info and temporary files live in
   its hidden `.xvid` subfolder.
 - yt-dlp updates to its nightly build on every start, because X breaks it often.
-- Python packages live in `%LOCALAPPDATA%\XVid\venv`, outside the repo (and OneDrive).
+- Python packages and this PC's own state live in `%LOCALAPPDATA%\XVid`, outside the repo
+  (which may be synced between PCs).
 
 **Uninstall:** run `stop.cmd`. Delete the repo folder and `%LOCALAPPDATA%\XVid`, remove
 `XVid` from the Startup folder (`shell:startup`), run `mkcert -uninstall`, and on the phone
@@ -116,3 +144,5 @@ remove the certificate (*Settings → Encryption & credentials → User credenti
 - **XVid isn't in the Share menu:** it must be *installed* (the **Install app** button,
   or Chrome menu ⋮ → **Install app**).
 - **Windows asked whether Python can use networks:** allow it on **Private** networks.
+- **A PC is missing on the phone:** open the app once while the home PC is on, so it learns about
+  new PCs. If a PC's address changed, run `setup.cmd` again on it. It tells the home PC by itself.

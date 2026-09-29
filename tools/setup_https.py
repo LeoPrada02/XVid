@@ -33,6 +33,7 @@ subprocess.run([mkcert, "-cert-file", str(CERT_FILE), "-key-file", str(KEY_FILE)
                 ip, socket.gethostname(), "localhost", "127.0.0.1"], check=True)
 
 caroot = Path(subprocess.run([mkcert, "-CAROOT"], check=True, capture_output=True, text=True).stdout.strip())
-shutil.copyfile(caroot / "rootCA.pem", CA_FILE)  # public part only; rootCA-key.pem never leaves mkcert's folder
+shutil.copyfile(caroot / "rootCA.pem", CA_FILE)  # public part only; rootCA-key.pem stays in mkcert's folder
+(CERTS / "caroot.txt").write_text(str(caroot))  # so the home PC can hand the authority to PCs that join it
 IP_FILE.write_text(ip)
 print(f"Certificate ready for {ip}.")

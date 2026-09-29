@@ -101,6 +101,11 @@ button, .button {
 .bar.indeterminate > div { width: 30%; animation: slide 1.2s infinite ease-in-out; }
 @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
 
+.target { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.target select { font: inherit; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
+#offline { margin-top: 16px; }
+.code-box { width: 100%; margin-top: 12px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--text); font: 0.85rem/1.4 ui-monospace, monospace; word-break: break-all; resize: none; }
+
 .folder { display: flex; align-items: center; gap: 8px; margin: -4px 0 10px; }
 .folder code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
