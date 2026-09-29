@@ -26,7 +26,7 @@ from urllib.parse import quote, urlencode, urlparse
 import qrcode
 import qrcode.image.svg
 import yt_dlp
-from fastapi import Depends, FastAPI, HTTPException, Request, Response, UploadFile
+from fastapi import Depends, FastAPI, Form, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -429,6 +429,28 @@ def upload_video(file: UploadFile) -> dict:
     os.replace(tmp, dest)
     write_sidecar(dest, {"title": original.stem, "uploader": "Uploaded"})
     return video_entry(dest)
+
+
+MAX_THUMB = 2 * 1024 * 1024
+
+
+@app.post("/api/videos/{name}/thumb", dependencies=[Depends(require_auth)])
+def set_thumbnail(name: str, file: UploadFile, duration: float | None = Form(None)) -> dict:
+    """A thumbnail for a video that came without one (uploads, files dropped into the folder).
+    The browser grabs a frame from the video and sends it here, so no ffmpeg is needed."""
+    video = library_file(name)
+    data = file.file.read(MAX_THUMB + 1)
+    if len(data) > MAX_THUMB or not data.startswith(b"\xff\xd8"):  # JPEG only
+        raise HTTPException(400, "Thumbnail must be a JPEG under 2 MB")
+    for ext in THUMB_EXTS:
+        meta_file(video, ext).unlink(missing_ok=True)
+    meta_file(video, ".jpg").write_bytes(data)
+    sidecar = meta_file(video, ".json")
+    meta = json.loads(sidecar.read_text(encoding="utf-8")) if sidecar.exists() else {"title": video.stem}
+    if duration and not meta.get("duration"):
+        meta["duration"] = duration
+        write_sidecar(video, meta)
+    return video_entry(video)
 
 
 @app.get("/media/{name}", dependencies=[Depends(require_media)])

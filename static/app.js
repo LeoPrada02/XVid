@@ -413,19 +413,33 @@ function renderLibraries() {
 
 function renderLibrary(pc) {
   const n = pc.videos.length;
-  const openFolder = el("button", { className: "link", textContent: "Open folder" });
-  openFolder.addEventListener("click", () =>
-    api(pc, "/api/open-folder", { method: "POST" }).catch((err) => toast(err.message)));
-  return el("section", {},
-    el("div", { className: "section-head" },
-      el("h2", { textContent: isLocal ? "Library" : pc.name }),
-      el("span", { className: "muted small", textContent: n ? `${n} video${n === 1 ? "" : "s"}` : "" })),
-    isLocal ? el("div", { className: "folder" }, el("code", { className: "muted small", textContent: pc.me.library }), openFolder) : null,
-    n ? el("div", { className: "grid" }, ...pc.videos.map((v) => renderTile(pc, v)))
-      : el("p", { className: "muted", textContent: "No videos yet." }));
+  const count = el("span", { className: "muted small", textContent: n ? `${n} video${n === 1 ? "" : "s"}` : "" });
+  const videos = n ? el("div", { className: "grid" }, ...pc.videos.map((v) => renderTile(pc, v)))
+    : el("p", { className: "muted", textContent: "No videos yet." });
+  if (isLocal) {
+    const openFolder = el("button", { className: "link", textContent: "Open folder" });
+    openFolder.addEventListener("click", () =>
+      api(pc, "/api/open-folder", { method: "POST" }).catch((err) => toast(err.message)));
+    return el("section", {},
+      el("div", { className: "section-head" }, el("h2", { textContent: "Library" }), count),
+      el("div", { className: "folder" }, el("code", { className: "muted small", textContent: pc.me.library }), openFolder),
+      videos);
+  }
+  // On the phone, each PC's library can be collapsed; the phone remembers which ones.
+  const details = el("details", { className: "library", open: !store.get("collapsed", []).includes(pc.url) },
+    el("summary", { className: "section-head" }, el("h2", { textContent: pc.name }), count),
+    videos);
+  details.addEventListener("toggle", () => {
+    const collapsed = new Set(store.get("collapsed", []));
+    if (details.open) collapsed.delete(pc.url);
+    else collapsed.add(pc.url);
+    store.set("collapsed", [...collapsed]);
+  });
+  return el("section", {}, details);
 }
 
 function renderTile(pc, v) {
+  if (!v.thumb) wantThumb(pc, v);
   const duration = fmtDuration(v.duration);
   const tile = el("button", { className: "tile", type: "button" },
     el("div", { className: "thumb" },
@@ -437,6 +451,73 @@ function renderTile(pc, v) {
         textContent: [v.uploader_id ? `@${v.uploader_id}` : v.uploader, fmtSize(v.size), fmtDate(v.added)].filter(Boolean).join(" · ") })));
   tile.addEventListener("click", () => openPlayer(pc, v));
   return tile;
+}
+
+// ---------------------------------------------------------------- thumbnails for videos without one
+// yt-dlp only gets thumbnails for X videos. For uploads and files dropped into a library, the browser
+// grabs a frame and sends it to the PC (so the PC doesn't need ffmpeg). One video at a time.
+
+const thumbTried = new Set();
+const thumbQueue = [];
+let thumbBusy = false;
+
+function grabFrame(src) {
+  return new Promise((resolve, reject) => {
+    const video = el("video", { muted: true, playsInline: true, preload: "auto", crossOrigin: "anonymous" });
+    const timer = setTimeout(() => done(new Error("Timed out")), 20000);
+    function done(err, frame) {
+      clearTimeout(timer);
+      video.removeAttribute("src");
+      video.load();
+      if (err) reject(err);
+      else resolve(frame);
+    }
+    video.addEventListener("error", () => done(new Error("Can't play this video")));
+    video.addEventListener("loadedmetadata", () => (video.currentTime = Math.min(1, video.duration / 3 || 0)));
+    video.addEventListener("seeked", () => {
+      if (!video.videoWidth) return done(new Error("No picture"));
+      const scale = Math.min(1, 640 / video.videoWidth);
+      const canvas = el("canvas", { width: Math.round(video.videoWidth * scale), height: Math.round(video.videoHeight * scale) });
+      try {
+        canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+      } catch (err) {
+        return done(err);
+      }
+      canvas.toBlob((blob) => (blob ? done(null, { blob, duration: video.duration }) : done(new Error("No picture"))),
+        "image/jpeg", 0.8);
+    }, { once: true });
+    video.src = src;
+  });
+}
+
+function saveThumb(pc, name, frame) {
+  const form = new FormData();
+  form.append("file", frame.blob, "thumb.jpg");
+  if (Number.isFinite(frame.duration)) form.append("duration", String(frame.duration));
+  return api(pc, `/api/videos/${encodeURIComponent(name)}/thumb`, { method: "POST", body: form });
+}
+
+function wantThumb(pc, v) {
+  const key = `${pc.url}/${v.name}`;
+  if (thumbTried.has(key)) return;
+  thumbTried.add(key);
+  thumbQueue.push({ pc, v });
+  nextThumb();
+}
+
+async function nextThumb() {
+  if (thumbBusy || !thumbQueue.length) return;
+  thumbBusy = true;
+  const { pc, v } = thumbQueue.shift();
+  try {
+    const frame = await grabFrame(mediaUrl(pc, `/media/${encodeURIComponent(v.name)}`));
+    Object.assign(v, await saveThumb(pc, v.name, frame));
+    renderLibraries();
+  } catch {
+    // Not every video can be played in the browser; it just keeps the empty thumbnail.
+  }
+  thumbBusy = false;
+  nextThumb();
 }
 
 // ---------------------------------------------------------------- player
@@ -504,7 +585,16 @@ $("#upload").addEventListener("change", () => {
       return toast(msg);
     }
     toast(isLocal ? "Uploaded" : `Uploaded to ${pc.name}`);
+    // Make its thumbnail from the file still on this device, instead of streaming it back.
+    const { name } = JSON.parse(xhr.responseText);
+    thumbTried.add(`${pc.url}/${name}`);
     loadLibrary(pc);
+    const local = URL.createObjectURL(file);
+    grabFrame(local)
+      .then((frame) => saveThumb(pc, name, frame))
+      .then(() => loadLibrary(pc))
+      .catch(() => {})
+      .finally(() => URL.revokeObjectURL(local));
   };
   xhr.onerror = () => toast(`Upload failed — is ${pc.name} on?`);
   xhr.send(form);
