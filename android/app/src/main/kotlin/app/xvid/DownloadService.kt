@@ -54,7 +54,7 @@ class DownloadService : Service() {
         var lastPercent: Int? = -1
         var lastUpdate = 0L
         showProgress(null)
-        val outcome = (application as XVidApp).phoneDownloads.download(text) { percent ->
+        val outcome = (application as XVidApp).retryingDownloads.download(text) { percent ->
             val now = SystemClock.elapsedRealtime()
             if (percent != lastPercent && now - lastUpdate >= PROGRESS_INTERVAL_MS) {
                 lastPercent = percent
@@ -63,6 +63,7 @@ class DownloadService : Service() {
             }
         }
         notifications.notify(nextResultId.getAndIncrement(), Notifications.result(this, outcome))
+        if ((application as XVidApp).retryingDownloads.hasWaiting()) BackgroundWork.retryWhenOnline(this)
         (application as XVidApp).updateCheck?.releaseToNotify()?.let {
             notifications.notify(UPDATE_ID, Notifications.update(this, it))
         }
