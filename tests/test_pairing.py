@@ -85,30 +85,36 @@ def test_no_codes_before_phone_access_is_set_up(pc):
 LATEST_APK = "https://github.com/example/xvid/releases/latest/download/XVid-arm64-v8a.apk"
 
 
-def pairing(pc) -> dict:
-    res = pc.client(LOCAL).post("/api/pair")
+def install_step(pc):
+    res = pc.client(LOCAL).get("/api/app-release")
     assert res.status_code == 200, res.text
-    return res.json()
+    return res.json()["install"]
 
 
-def test_add_a_phone_links_to_the_latest_release(phone_ready, monkeypatch):
+def test_add_a_phone_links_to_the_latest_release(pc, monkeypatch):
     monkeypatch.setenv("XVID_RELEASES_REPO", "example/xvid")
-    install = pairing(phone_ready)["install"]
+    install = install_step(pc)  # even before phone access is set up
     assert install["url"] == LATEST_APK
     assert install["page"] == "https://github.com/example/xvid/releases/latest"
     assert install["svg"].startswith("<")
 
 
-def test_the_release_repo_can_be_set_in_xvid_json(phone_ready, monkeypatch):
+def test_the_release_repo_can_be_set_in_xvid_json(pc, monkeypatch):
     monkeypatch.delenv("XVID_RELEASES_REPO")
-    (phone_ready.data / "xvid.json").write_text(json.dumps({"releases_repo": "example/xvid"}))
-    assert pairing(phone_ready)["install"]["url"] == LATEST_APK
+    (pc.data / "xvid.json").write_text(json.dumps({"releases_repo": "example/xvid"}))
+    assert install_step(pc)["url"] == LATEST_APK
 
 
-def test_no_install_step_when_the_release_repo_is_unknown(phone_ready):
-    assert pairing(phone_ready)["install"] is None
+def test_no_install_step_when_the_release_repo_is_unknown(pc):
+    assert install_step(pc) is None
 
 
-def test_a_malformed_release_repo_is_ignored(phone_ready, monkeypatch):
+def test_a_malformed_release_repo_is_ignored(pc, monkeypatch):
     monkeypatch.setenv("XVID_RELEASES_REPO", "not a repo/../x")
-    assert pairing(phone_ready)["install"] is None
+    assert install_step(pc) is None
+
+
+def test_only_the_pc_itself_gets_the_install_step(pc):
+    phone = pc.client()
+    assert phone.get("/api/app-release", headers=bearer(login(phone)["session"])).status_code == 403
+    assert pc.client().get("/api/app-release").status_code == 401

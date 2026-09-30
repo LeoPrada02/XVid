@@ -535,24 +535,28 @@ def create_pairing(request: Request) -> dict:
         raise HTTPException(409, "Phone access isn't set up yet. Run setup.cmd on the PC.")
     code = new_code(pair_codes)
     # The code goes in the #fragment, which browsers never send over the (plain HTTP) network.
-    # The phone always installs the app from the home PC, and logs in on this PC.
+    # The phone installs the web app from the home PC, and logs in on this PC. (The native app comes
+    # from GitHub Releases instead: see app_release.)
     fragment = urlencode({"pair": code, "home": home_url(), "pc": config.self_url()})
     url = f"http://{cert_ip()}:{HTTP_PORT}/setup#{fragment}"
-    return {"url": url, "svg": qr_svg(url), "expires_in": PAIR_TTL, "install": install_step()}
+    return {"url": url, "svg": qr_svg(url), "expires_in": PAIR_TTL}
 
 
 # The release workflow (.github/workflows/release.yml) attaches one APK per CPU type; this one fits most phones.
 PHONE_APK = "XVid-arm64-v8a.apk"
 
 
-def install_step() -> dict | None:
-    """Step 1 of Add a phone: where to get the phone app (the latest GitHub Release)."""
+@app.get("/api/app-release", dependencies=[Depends(require_auth)])
+def app_release(request: Request) -> dict:
+    """Step 1 of Add a phone: where to get the phone app (the latest GitHub Release), or null if unknown."""
+    if not trusted_local(request):
+        raise HTTPException(403, "Only available on the PC")
     repo = config.releases_repo()
     if repo is None:
-        return None
+        return {"install": None}
     page = f"https://github.com/{repo}/releases/latest"
     url = f"{page}/download/{PHONE_APK}"
-    return {"url": url, "page": page, "svg": qr_svg(url)}
+    return {"install": {"url": url, "page": page, "svg": qr_svg(url)}}
 
 
 def qr_svg(text: str) -> str:

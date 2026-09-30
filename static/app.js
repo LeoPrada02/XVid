@@ -620,8 +620,32 @@ function startCountdown(expiresIn, onTick, onExpire) {
 
 let pairTimer;
 
+async function showInstallStep() {
+  $("#install-step").hidden = true;
+  $("#install-status").textContent = "";
+  let install;
+  try {
+    ({ install } = await api(pcs[0], "/api/app-release"));
+  } catch (err) {
+    $("#install-status").textContent = err.message;
+    return;
+  }
+  if (!install) {
+    $("#install-status").textContent = "XVid doesn't know which GitHub repo the app comes from. " +
+      "Set XVID_RELEASES_REPO (owner/name) on this PC and restart XVid.";
+    return;
+  }
+  // The SVG comes from this PC (the qrcode library), not from user input.
+  $("#install-qr").innerHTML = install.svg;
+  $("#install-page").href = install.page;
+  $("#install-step").hidden = false;
+}
+
 async function openPairing() {
-  if (!$("#pair").open) $("#pair").showModal();
+  if (!$("#pair").open) {
+    $("#pair").showModal();
+    showInstallStep();
+  }
   $("#pair-qr").replaceChildren();
   $("#pair-status").textContent = "Creating a code…";
   clearInterval(pairTimer);
@@ -632,13 +656,8 @@ async function openPairing() {
     $("#pair-status").textContent = err.message;
     return;
   }
-  // The SVGs come from our own server (the qrcode library), not from user input.
+  // The SVG comes from this PC (the qrcode library), not from user input.
   $("#pair-qr").innerHTML = pairing.svg;
-  $("#install-step").hidden = !pairing.install;
-  if (pairing.install) {
-    $("#install-qr").innerHTML = pairing.install.svg;
-    $("#install-page").href = pairing.install.page;
-  }
   $("#pair-url").textContent = pairing.url;
   pairTimer = startCountdown(pairing.expires_in,
     (left) => ($("#pair-status").textContent = `One-time code, expires in ${fmtCountdown(left)}.`),

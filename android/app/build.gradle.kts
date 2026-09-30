@@ -11,7 +11,10 @@ plugins {
 fun env(name: String): String? = providers.environmentVariable(name).orNull?.takeIf { it.isNotBlank() }
 
 val appVersion = env("XVID_VERSION") ?: "0.1.0-dev"
-val (major, minor, patch) = Regex("""(\d+)\.(\d+)\.(\d+)""").find(appVersion)!!.destructured
+val (major, minor, patch) = Regex("""(\d+)\.(\d+)\.(\d+)(-dev)?""").matchEntire(appVersion)?.destructured
+    ?: error("XVID_VERSION must look like 1.2.0, not $appVersion")
+// Android only installs updates with a higher versionCode, so minor and patch get two digits each.
+require(minor.toInt() < 100 && patch.toInt() < 100) { "Minor and patch versions must stay below 100: $appVersion" }
 
 android {
     namespace = "app.xvid"

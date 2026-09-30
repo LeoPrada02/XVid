@@ -5,7 +5,8 @@ name: Release phone app
 
 on:
   push:
-    tags: ["v*.*.*"]
+    # Plain release tags only (v1.2.0), not v1.2.0-beta: the app compares major.minor.patch.
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
 
 permissions:
   contents: write # create the release
