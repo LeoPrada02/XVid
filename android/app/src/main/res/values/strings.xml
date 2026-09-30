@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">XVid</string>
+    <string name="main_title">XVid</string>
+    <string name="main_help">In the X app, open a post with a video, tap Share and choose XVid. The video downloads on this phone into Movies/XVid, where your gallery and Google Photos show it.</string>
+    <string name="channel_downloads">Phone downloads</string>
+    <string name="channel_results">Finished downloads</string>
+    <string name="toast_downloading">Downloading to the phone…</string>
+    <string name="notif_downloading">Downloading to the phone</string>
+    <string name="notif_starting">Starting…</string>
+    <string name="notif_saved">Saved</string>
+    <string name="notif_saved_one">%1$s · tap to play</string>
+    <plurals name="notif_saved_many">
+        <item quantity="one">%1$d video · tap to play</item>
+        <item quantity="other">%1$d videos · tap to play the first</item>
+    </plurals>
+    <string name="notif_failed">Download failed</string>
+</resources>
