@@ -29,6 +29,7 @@ class MainActivity : Activity() {
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
                     setPadding(0, dp(16), 0, 0)
                 })
+                addView(PhoneLibrarySection(context))
                 addView(TextView(context).apply {
                     text = getString(R.string.main_version, BuildConfig.VERSION_NAME)
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)

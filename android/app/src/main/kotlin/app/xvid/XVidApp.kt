@@ -3,6 +3,7 @@ package app.xvid
 import android.app.Application
 import app.xvid.core.MaximumQualitySetting
 import app.xvid.core.PhoneDownloads
+import app.xvid.core.PhoneLibraryBrowser
 import app.xvid.core.UpdateCheck
 import java.io.File
 
@@ -19,6 +20,14 @@ class XVidApp : Application() {
     }
 
     val maximumQuality: MaximumQualitySetting by lazy { MaximumQualitySetting(PreferencesStorage(this)) }
+
+    val phoneLibrary: PhoneLibraryBrowser by lazy {
+        PhoneLibraryBrowser(
+            folder = MediaStorePhoneLibraryFolder(this),
+            thumbnails = FrameThumbnailMaker(this),
+            thumbnailDir = File(cacheDir, "thumbnails"),
+        )
+    }
 
     /** Null in local builds, which don't know which GitHub repo they come from. */
     val updateCheck: UpdateCheck? by lazy {
