@@ -5,3 +5,4 @@ __pycache__/
 certs/
 boceto.md
 xvid.json
+.pytest_cache/
