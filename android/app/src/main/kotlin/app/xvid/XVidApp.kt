@@ -34,7 +34,7 @@ class XVidApp : Application() {
             network = network,
             workDir = File(cacheDir, "downloads"),
             maximumQuality = maximumQuality::current,
-            xLogin = xLogin::cookies,
+            xLogin = xLogin,
         )
     }
 

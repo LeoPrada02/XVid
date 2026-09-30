@@ -93,7 +93,7 @@ class XLoginActivity : Activity() {
         if (!ready) return false
         val cookies = CookieManager.getInstance().getCookie(X_URL) ?: return false
         val app = application as XVidApp
-        if (!app.xLogin.logIn(cookies)) return false
+        if (!app.xLogin.logIn(cookies, web.settings.userAgentString)) return false
         done = true
         CookieManager.getInstance().flush()
         mainThread.removeCallbacks(poll)

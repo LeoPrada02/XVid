@@ -22,6 +22,8 @@ class YoutubeDlEngine(private val context: Context) : DownloadEngine {
         val cookies = request.cookies?.let { File(request.outputDir, "cookies.txt").apply { writeText(it) } }
         val ytRequest = YoutubeDLRequest(request.url).apply {
             cookies?.let { addOption("--cookies", it.absolutePath) }
+            // The same browser identity the X login was made with, so X sees one browser.
+            request.userAgent?.let { addOption("--add-header", "User-Agent:$it") }
             addOption("-f", request.format)
             // Merge the best video and audio streams into one mp4 with ffmpeg.
             addOption("--merge-output-format", "mp4")

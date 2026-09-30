@@ -16,8 +16,8 @@ class PhoneDownloads(
     private val workDir: File,
     /** Read at the start of each phone download, so a new choice applies to the next one. */
     private val maximumQuality: () -> MaximumQuality = { MaximumQuality.BEST },
-    /** The X login's cookies (see [XLogin.cookies]), read at the start of each phone download. */
-    private val xLogin: () -> String? = { null },
+    /** The phone's X login, read at the start of each phone download. */
+    private val xLogin: XLogin? = null,
 ) {
     /**
      * Downloads the post linked in [sharedText]. [onProgress] gets a
@@ -31,7 +31,14 @@ class PhoneDownloads(
         val jobDir = File(workDir, "download-${link.statusId}-${System.nanoTime()}")
         try {
             val files = try {
-                engine.download(EngineRequest(link.url, maximumQuality().format, jobDir, xLogin())) { percent ->
+                val request = EngineRequest(
+                    link.url,
+                    maximumQuality().format,
+                    jobDir,
+                    cookies = xLogin?.cookies(),
+                    userAgent = xLogin?.userAgent(),
+                )
+                engine.download(request) { percent ->
                     onProgress(if (percent < 0f) null else percent.toInt().coerceIn(0, 100))
                 }
             } catch (e: EngineError) {

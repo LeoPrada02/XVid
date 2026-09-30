@@ -18,9 +18,16 @@ interface DownloadEngine {
 
 /**
  * What to download, in which yt-dlp format, and where to put the files.
- * [cookies] is the phone's X login as a Netscape cookies file, or null when logged out.
+ * [cookies] is the phone's X login as a Netscape cookies file, or null when logged out;
+ * [userAgent] the browser identity that login was made with, for yt-dlp to send too.
  */
-data class EngineRequest(val url: String, val format: String, val outputDir: File, val cookies: String? = null)
+data class EngineRequest(
+    val url: String,
+    val format: String,
+    val outputDir: File,
+    val cookies: String? = null,
+    val userAgent: String? = null,
+)
 
 /** A failed engine run. The message is yt-dlp's error output. */
 class EngineError(message: String) : Exception(message)

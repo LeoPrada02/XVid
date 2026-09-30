@@ -31,7 +31,7 @@ class XLoginTest {
 
     /** A fresh instance on the same storage, as after the app was restarted. */
     private fun newDownloads() = RetryingPhoneDownloads(
-        PhoneDownloads(engine, library, network, workDir, xLogin = XLogin(storage)::cookies),
+        PhoneDownloads(engine, library, network, workDir, xLogin = XLogin(storage)),
         network,
         YtDlpUpdates(updater, storage, FakeClock()),
         storage,
@@ -217,6 +217,25 @@ class XLoginTest {
 
         assertFalse(login.isLoggedIn())
         assertNull(engine.requests.single().cookies)
+    }
+
+    @Test
+    fun `the login page's browser identity goes to the engine with the login`() {
+        login.logIn("auth_token=secret1; ct0=secret2", userAgent = "Mozilla/5.0 (Linux; Android 14) Chrome/130")
+
+        downloads.download("https://x.com/someone/status/1")
+
+        assertEquals("Mozilla/5.0 (Linux; Android 14) Chrome/130", engine.requests.single().userAgent)
+    }
+
+    @Test
+    fun `logging out forgets the browser identity too`() {
+        login.logIn("auth_token=secret1; ct0=secret2", userAgent = "Mozilla/5.0 (Linux; Android 14) Chrome/130")
+
+        login.logOut()
+        downloads.download("https://x.com/someone/status/1")
+
+        assertNull(engine.requests.single().userAgent)
     }
 
     @Test
