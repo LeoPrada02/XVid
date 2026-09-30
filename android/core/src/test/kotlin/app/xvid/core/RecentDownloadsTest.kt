@@ -54,12 +54,12 @@ class RecentDownloadsTest {
 
     @Test
     fun `a failed download shows why`() {
-        engine.failWith = "ERROR: [twitter] 1: No video could be found in this tweet"
+        engine.failWith = "ERROR: [twitter] 1: Requested tweet is unavailable"
 
         downloads.download("https://x.com/someone/status/1")
 
         assertEquals(
-            listOf(RecentDownload.State.FAILED to "No video could be found in this tweet"),
+            listOf(RecentDownload.State.FAILED to "Requested tweet is unavailable"),
             recent().map { it.state to it.detail },
         )
     }
@@ -86,7 +86,7 @@ class RecentDownloadsTest {
         network.online = false
         downloads.download("https://x.com/someone/status/1")
         assertEquals(
-            listOf(RecentDownload.State.FAILED to "No internet connection. XVid will try again when the connection is back"),
+            listOf(RecentDownload.State.WAITING to "No internet connection. XVid will try again when the connection is back"),
             recent().map { it.state to it.detail },
         )
 
@@ -116,6 +116,25 @@ class RecentDownloadsTest {
         downloads.download("https://x.com/someone/status/1")
 
         assertEquals(listOf("https://x.com/someone/status/1", "https://x.com/someone/status/2"), recent().map { it.url })
+    }
+
+    @Test
+    fun `clearing finished downloads keeps the ones still going or needing something`() {
+        downloads.download("https://x.com/someone/status/1")
+        engine.failWith = "ERROR: [twitter] 2: Requested tweet is unavailable"
+        downloads.download("https://x.com/someone/status/2")
+        engine.failWith = "ERROR: [twitter] 3: NSFW tweet requires authentication"
+        downloads.download("https://x.com/someone/status/3")
+        network.online = false
+        downloads.download("https://x.com/someone/status/4")
+        RecentDownloads(storage, clock).started("https://x.com/someone/status/5")
+
+        RecentDownloads(storage, clock).clearFinished()
+
+        assertEquals(
+            listOf("https://x.com/someone/status/5", "https://x.com/someone/status/4", "https://x.com/someone/status/3"),
+            recent().map { it.url },
+        )
     }
 
     @Test

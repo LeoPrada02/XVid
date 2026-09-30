@@ -2,11 +2,8 @@ package app.xvid
 
 import android.app.Activity
 import android.content.Context
-import android.util.TypedValue
 import android.view.View
-import android.widget.Button
 import android.widget.LinearLayout
-import android.widget.TextView
 import app.xvid.core.KnownPcs
 import app.xvid.core.PairingResult
 import app.xvid.core.PcState
@@ -26,20 +23,15 @@ class PcSectionsView(context: Context) : LinearLayout(context) {
     private val activity = context as Activity
     private val app = activity.application as XVidApp
     private val pcs: KnownPcs = app.knownPcs
-    private val sections = LinearLayout(activity).apply { orientation = VERTICAL }
-    private val message = text(15f).apply { visibility = GONE }
-    private val pairButton = Button(activity).apply {
-        setText(R.string.pcs_pair)
-        setOnClickListener { scan() }
-    }
+    private val sections = activity.column()
+    private val message = activity.text(TextStyle.MUTED).apply { visibility = GONE }
+    private val pairButton = activity.button(R.string.pcs_pair, ButtonStyle.LINK) { scan() }
 
     init {
         orientation = VERTICAL
-        setPadding(0, dp(32), 0, 0)
-        addView(text(22f).apply { setText(R.string.pcs_title) })
+        addView(activity.sectionHead(R.string.pcs_title, pairButton))
+        addView(message, activity.spaced(0))
         addView(sections)
-        addView(message)
-        addView(pairButton)
         show(pcs.list().map { PcStatus(it, PcState.NOT_REACHABLE) }, checking = true)
     }
 
@@ -71,6 +63,7 @@ class PcSectionsView(context: Context) : LinearLayout(context) {
 
     private fun showPairing() {
         pairButton.isEnabled = !app.pairing.inProgress
+        pairButton.alpha = if (app.pairing.inProgress) 0.4f else 1f
         app.pairing.message?.let(::say)
     }
 
@@ -103,23 +96,26 @@ class PcSectionsView(context: Context) : LinearLayout(context) {
     private fun show(statuses: List<PcStatus>, checking: Boolean) {
         sections.removeAllViews()
         if (statuses.isEmpty()) {
-            sections.addView(text(16f).apply { setText(R.string.pcs_none) })
+            sections.addView(activity.card(14) { addView(activity.text(TextStyle.MUTED, R.string.pcs_none)) }, activity.spaced())
             return
         }
         for (status in statuses) {
-            sections.addView(text(18f).apply {
-                text = if (status.pc.home) activity.getString(R.string.pcs_home, status.pc.name) else status.pc.name
-                setPadding(0, dp(16), 0, 0)
-            })
-            sections.addView(text(15f).apply {
-                setText(when {
-                    checking -> R.string.pcs_checking
-                    status.state == PcState.REACHABLE -> R.string.pcs_reachable
-                    status.state == PcState.PAIR_AGAIN -> R.string.pcs_pair_again
-                    else -> R.string.pcs_not_reachable
+            sections.addView(activity.card {
+                addView(activity.text(TextStyle.HEADING).apply {
+                    text = if (status.pc.home) activity.getString(R.string.pcs_home, status.pc.name) else status.pc.name
+                    textSize = 15f
                 })
-                alpha = if (status.state == PcState.REACHABLE && !checking) 1f else 0.6f
-            })
+                addView(activity.text(TextStyle.SMALL).apply {
+                    setText(when {
+                        checking -> R.string.pcs_checking
+                        status.state == PcState.REACHABLE -> R.string.pcs_reachable
+                        status.state == PcState.PAIR_AGAIN -> R.string.pcs_pair_again
+                        else -> R.string.pcs_not_reachable
+                    })
+                    if (!checking && status.state == PcState.REACHABLE) setTextColor(activity.color(R.color.ok))
+                    if (!checking && status.state == PcState.PAIR_AGAIN) setTextColor(activity.color(R.color.danger))
+                }, activity.spaced(4))
+            }, activity.spaced())
         }
     }
 
@@ -135,6 +131,4 @@ class PcSectionsView(context: Context) : LinearLayout(context) {
             activity.runOnUiThread { if (!activity.isDestroyed) done(result) }
         }.start()
     }
-
-    private fun text(sizeSp: Float) = TextView(activity).apply { setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp) }
 }

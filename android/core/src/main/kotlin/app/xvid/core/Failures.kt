@@ -23,6 +23,9 @@ object Failures {
         "guest token", "could not authenticate you", "bad authentication data", "querying api", "failed to query api",
     )
 
+    // What yt-dlp says when X hides a sensitive post's video from someone logged out.
+    private val hiddenWhenLoggedOut = listOf("no video could be found")
+
     // What X answers when it refuses the login yt-dlp sent: an expired X login, if a newer yt-dlp doesn't help.
     private val rejectedLogin = listOf("could not authenticate you", "bad authentication data")
 
@@ -64,6 +67,12 @@ object Failures {
             else -> FailureKind.OTHER
         }
     }
+
+    /**
+     * Whether [reason] may only mean the post's video is hidden from someone logged out: X shows
+     * sensitive posts to logged-out visitors without their video, so it looks like there's none.
+     */
+    fun hiddenWhenLoggedOut(reason: String): Boolean = reason.lowercase().let { text -> hiddenWhenLoggedOut.any { it in text } }
 
     /** Whether [reason] is X refusing the authentication it got, which an expired X login causes. */
     fun rejectsLogin(reason: String): Boolean = reason.lowercase().let { text -> rejectedLogin.any { it in text } }

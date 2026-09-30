@@ -1,12 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The Downloads section of the main screen. -->
+<!-- The main screen: the link box and the Downloads section. -->
 <resources>
+    <string name="main_paste_hint">Paste an X link</string>
+    <string name="main_paste">Paste</string>
+    <string name="main_download">Download</string>
+    <string name="main_link_empty">Paste a link to an X post first.</string>
+    <string name="main_link_not_x">That isn\'t a link to an X post.</string>
     <string name="recent_title">Downloads</string>
-    <string name="recent_none">None yet. In the X app, share a post with a video to XVid.</string>
+    <string name="recent_clear">Clear finished</string>
     <string name="recent_notifications_off">Notifications are off for XVid, so check here how your downloads went.</string>
     <string name="recent_notifications_turn_on">Turn on notifications</string>
-    <string name="recent_post">Post %1$s · %2$s</string>
     <string name="recent_downloading">Downloading…</string>
-    <string name="recent_saved">Saved: %1$s</string>
-    <string name="recent_failed">Failed: %1$s</string>
+    <string name="recent_saved">Saved</string>
+    <string name="recent_failed">Failed</string>
+    <string name="recent_needs_login">Needs login</string>
+    <string name="recent_waiting">Waiting for connection</string>
 </resources>

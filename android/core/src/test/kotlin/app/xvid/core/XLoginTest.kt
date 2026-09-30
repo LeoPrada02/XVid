@@ -151,6 +151,31 @@ class XLoginTest {
     }
 
     @Test
+    fun `logged out, a post whose video X hides asks for an X login, since sensitive posts look like that`() {
+        engine.failWith = "ERROR: [twitter] 1: No video could be found in this tweet"
+
+        val outcome = downloads.download("https://x.com/someone/status/1")
+
+        assertEquals(PhoneDownloadOutcome.NeedsLogin("No video could be found in this tweet"), outcome)
+        assertEquals(0, updater.calls)
+        engine.failWith = null
+        login.logIn("auth_token=secret1; ct0=secret2")
+        downloads.retryAfterLogin { results += it }
+        assertIs<PhoneDownloadOutcome.Saved>(results.single())
+    }
+
+    @Test
+    fun `logged in, a post with no video just fails`() {
+        login.logIn("auth_token=secret1; ct0=secret2")
+        engine.failWith = "ERROR: [twitter] 1: No video could be found in this tweet"
+
+        val outcome = downloads.download("https://x.com/someone/status/1")
+
+        assertEquals(PhoneDownloadOutcome.Failed("No video could be found in this tweet"), outcome)
+        assertFalse(downloads.hasWaitingForLogin())
+    }
+
+    @Test
     fun `logged out, X refusing yt-dlp's access is not taken for a login problem`() {
         engine.failWith = "ERROR: [twitter] 1: Error(s) while querying API: Could not authenticate you"
 

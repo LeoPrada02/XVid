@@ -1,62 +1,49 @@
 package app.xvid
 
 import android.app.Activity
+import android.content.res.ColorStateList
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.View
-import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
-import android.widget.TextView
 import app.xvid.core.MaximumQuality
 
 /** Settings: the Maximum quality for phone downloads (Best / 720p / 480p), and the X login. */
 class SettingsActivity : Activity() {
-    private val loginStatus by lazy { TextView(this).apply { setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f) } }
-    private val loginButton by lazy { Button(this) }
+    private val loginStatus by lazy { text(TextStyle.MUTED) }
+    private val loginButtonSlot by lazy { column() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val setting = (application as XVidApp).maximumQuality
-        val padding = dp(24)
         setContentView(
-            LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(padding, padding * 3, padding, padding)
-                addView(TextView(context).apply {
-                    setText(R.string.settings_title)
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
-                })
-                addView(TextView(context).apply {
-                    setText(R.string.settings_quality)
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
-                    setPadding(0, dp(24), 0, 0)
-                })
-                addView(TextView(context).apply {
-                    setText(R.string.settings_quality_help)
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-                    setPadding(0, dp(4), 0, dp(8))
-                })
-                addView(RadioGroup(context).apply {
-                    val current = setting.current()
-                    MaximumQuality.entries.forEach { quality ->
-                        addView(RadioButton(context).apply {
-                            id = View.generateViewId()
-                            setText(labelOf(quality))
-                            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-                            isChecked = quality == current
-                            setOnCheckedChangeListener { _, checked -> if (checked) setting.choose(quality) }
-                        })
-                    }
-                })
-                addView(TextView(context).apply {
-                    setText(R.string.settings_x_login)
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
-                    setPadding(0, dp(32), 0, dp(4))
-                })
-                addView(loginStatus)
-                addView(loginButton)
+            screen {
+                addView(text(TextStyle.TITLE, R.string.settings_title))
+                addView(card(16) {
+                    addView(text(TextStyle.HEADING, R.string.settings_quality))
+                    addView(text(TextStyle.MUTED, R.string.settings_quality_help), spaced(4))
+                    addView(RadioGroup(context).apply {
+                        val current = setting.current()
+                        MaximumQuality.entries.forEach { quality ->
+                            addView(RadioButton(context).apply {
+                                id = View.generateViewId()
+                                setText(labelOf(quality))
+                                setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+                                setTextColor(color(R.color.text))
+                                buttonTintList = ColorStateList.valueOf(color(R.color.accent))
+                                isChecked = quality == current
+                                setOnCheckedChangeListener { _, checked -> if (checked) setting.choose(quality) }
+                            })
+                        }
+                    }, spaced(8))
+                }, spaced(16))
+                addView(card(16) {
+                    addView(text(TextStyle.HEADING, R.string.settings_x_login))
+                    addView(loginStatus, spaced(4))
+                    addView(loginButtonSlot, spaced(12))
+                }, spaced(12))
             },
         )
     }
@@ -70,15 +57,19 @@ class SettingsActivity : Activity() {
     private fun showXLogin() {
         val loggedIn = (application as XVidApp).xLogin.isLoggedIn()
         loginStatus.setText(if (loggedIn) R.string.settings_x_logged_in else R.string.settings_x_logged_out)
-        loginButton.setText(if (loggedIn) R.string.settings_x_log_out else R.string.settings_x_log_in)
-        loginButton.setOnClickListener {
+        loginButtonSlot.removeAllViews()
+        val wrap = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        loginButtonSlot.addView(
             if (loggedIn) {
-                XLoginActivity.logOut(this)
-                showXLogin()
+                button(R.string.settings_x_log_out, ButtonStyle.DANGER) {
+                    XLoginActivity.logOut(this)
+                    showXLogin()
+                }
             } else {
-                startActivity(XLoginActivity.intent(this))
-            }
-        }
+                button(R.string.settings_x_log_in) { startActivity(XLoginActivity.intent(this)) }
+            },
+            wrap,
+        )
     }
 
     private fun labelOf(quality: MaximumQuality) = when (quality) {

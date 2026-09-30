@@ -114,11 +114,11 @@ class RetryingPhoneDownloadsTest {
         downloads.download("https://x.com/someone/status/1")
 
         network.online = true
-        engine.failWith = "ERROR: [twitter] 1: No video could be found in this tweet"
+        engine.failWith = "ERROR: [twitter] 1: Requested tweet is unavailable"
         val stillWaiting = retryWaiting()
 
         assertFalse(stillWaiting)
-        assertEquals(listOf<PhoneDownloadOutcome>(PhoneDownloadOutcome.Failed("No video could be found in this tweet")), results)
+        assertEquals(listOf<PhoneDownloadOutcome>(PhoneDownloadOutcome.Failed("Requested tweet is unavailable")), results)
     }
 
     @Test
@@ -246,11 +246,11 @@ class RetryingPhoneDownloadsTest {
 
     @Test
     fun `permanent errors are not retried`() {
-        engine.failWith = "ERROR: [twitter] 1: No video could be found in this tweet"
+        engine.failWith = "ERROR: [twitter] 1: Requested tweet is unavailable"
 
         val outcome = downloads.download("https://x.com/someone/status/1")
 
-        assertEquals(PhoneDownloadOutcome.Failed("No video could be found in this tweet"), outcome)
+        assertEquals(PhoneDownloadOutcome.Failed("Requested tweet is unavailable"), outcome)
         assertEquals(1, engine.requests.size)
         assertEquals(0, updater.calls)
         assertFalse(downloads.hasWaiting())

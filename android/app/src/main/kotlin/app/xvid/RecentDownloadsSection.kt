@@ -4,34 +4,33 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
-import android.text.format.DateUtils
-import android.util.TypedValue
+import android.text.TextUtils
 import android.view.View
-import android.widget.Button
 import android.widget.LinearLayout
-import android.widget.TextView
 import app.xvid.core.RecentDownload
 
 /**
- * The Downloads section of the main screen: the latest phone downloads and how each one is
- * going or ended, so nothing depends on notifications. When XVid isn't allowed to notify,
- * it says so and offers to turn notifications on. Shown again every few seconds while visible.
+ * The Downloads section of the main screen, like the web app's: one card per recent phone
+ * download with how it's going or how it ended, so nothing depends on notifications. When
+ * XVid isn't allowed to notify, it says so and offers to turn notifications on. Shown again
+ * every few seconds while visible.
  */
 class RecentDownloadsSection(context: Context) : LinearLayout(context) {
     private val app = context.applicationContext as XVidApp
-    private val notificationsOff = LinearLayout(context).apply {
-        orientation = VERTICAL
-        addView(text(14f).apply { setText(R.string.recent_notifications_off) })
-        addView(Button(context).apply {
-            setText(R.string.recent_notifications_turn_on)
-            setOnClickListener {
-                context.startActivity(
-                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
-                )
-            }
-        })
+    private val notificationsOff = context.card(14) {
+        addView(context.text(TextStyle.MUTED, R.string.recent_notifications_off))
+        addView(context.button(R.string.recent_notifications_turn_on, ButtonStyle.SECONDARY, small = true) {
+            context.startActivity(
+                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+            )
+        }, context.spaced(10, LayoutParams.WRAP_CONTENT))
     }
-    private val rows = LinearLayout(context).apply { orientation = VERTICAL }
+    private val clear = context.button(R.string.recent_clear, ButtonStyle.LINK) {
+        app.recentDownloads.clearFinished()
+        show()
+    }
+    private val rows = context.column()
+    private var shown: List<RecentDownload>? = null
     private val refresh = object : Runnable {
         override fun run() {
             show()
@@ -41,9 +40,8 @@ class RecentDownloadsSection(context: Context) : LinearLayout(context) {
 
     init {
         orientation = VERTICAL
-        setPadding(0, dp(24), 0, 0)
-        addView(text(20f).apply { setText(R.string.recent_title) })
-        addView(notificationsOff)
+        addView(context.sectionHead(R.string.recent_title, clear))
+        addView(notificationsOff, context.spaced(0))
         addView(rows)
     }
 
@@ -56,40 +54,55 @@ class RecentDownloadsSection(context: Context) : LinearLayout(context) {
     private fun show() {
         val notificationsOn = context.getSystemService(NotificationManager::class.java).areNotificationsEnabled()
         notificationsOff.visibility = if (notificationsOn) GONE else VISIBLE
-        rows.removeAllViews()
         val downloads = app.recentDownloads.list()
+        clear.visibility = if (downloads.any { it.state == RecentDownload.State.SAVED || it.state == RecentDownload.State.FAILED }) VISIBLE else GONE
+        if (downloads == shown) return // rebuilt only when something changed, so progress bars keep moving
+        shown = downloads
+        rows.removeAllViews()
         if (downloads.isEmpty()) {
-            rows.addView(text(15f).apply { setText(R.string.recent_none) })
+            rows.addView(context.card(14) { addView(context.text(TextStyle.MUTED, R.string.main_help)) }, context.spaced())
             return
         }
-        for (download in downloads) {
-            rows.addView(text(15f).apply {
-                text = context.getString(
-                    R.string.recent_post,
-                    download.url.substringAfterLast('/'),
-                    DateUtils.getRelativeTimeSpanString(download.time),
-                )
-                setPadding(0, dp(12), 0, 0)
+        for (download in downloads) rows.addView(card(download), context.spaced())
+    }
+
+    private fun card(download: RecentDownload) = context.card {
+        val failed = download.state == RecentDownload.State.FAILED || download.state == RecentDownload.State.NEEDS_LOGIN
+        addView(context.row {
+            addView(context.text(TextStyle.BODY, download.url.removePrefix("https://")).apply {
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+                textSize = 14f
+            }, fill())
+            addView(context.text(if (failed) TextStyle.ERROR else TextStyle.SMALL, context.getString(statusOf(download.state))).apply {
+                setPadding(context.dp(8), 0, 0, 0)
             })
-            rows.addView(text(14f).apply {
-                text = when (download.state) {
-                    RecentDownload.State.DOWNLOADING -> context.getString(R.string.recent_downloading)
-                    RecentDownload.State.SAVED -> context.getString(R.string.recent_saved, download.detail)
-                    RecentDownload.State.FAILED -> context.getString(R.string.recent_failed, download.detail)
-                    RecentDownload.State.NEEDS_LOGIN -> context.getString(R.string.notif_needs_login)
-                }
-                alpha = 0.75f
-            })
-            if (download.state == RecentDownload.State.NEEDS_LOGIN) {
-                rows.addView(Button(context).apply {
-                    setText(R.string.settings_x_log_in)
-                    setOnClickListener { context.startActivity(XLoginActivity.intent(context)) }
-                })
+        })
+        when (download.state) {
+            RecentDownload.State.DOWNLOADING -> addView(context.progressBar(), context.spaced(6))
+            RecentDownload.State.SAVED -> addView(context.text(TextStyle.SMALL, download.detail), context.spaced(4))
+            RecentDownload.State.FAILED -> addView(context.text(TextStyle.ERROR, download.detail), context.spaced(6))
+            RecentDownload.State.WAITING -> addView(context.text(TextStyle.SMALL, download.detail), context.spaced(4))
+            RecentDownload.State.NEEDS_LOGIN -> {
+                addView(context.text(TextStyle.ERROR, R.string.notif_needs_login), context.spaced(6))
+                addView(context.button(R.string.settings_x_log_in, small = true) {
+                    context.startActivity(XLoginActivity.intent(context))
+                }, context.spaced(8, LayoutParams.WRAP_CONTENT))
             }
+        }
+        if (download.state == RecentDownload.State.SAVED) {
+            isClickable = true
+            setOnClickListener { PhoneLibraryActivity.open(context) }
         }
     }
 
-    private fun text(sizeSp: Float) = TextView(context).apply { setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp) }
+    private fun statusOf(state: RecentDownload.State) = when (state) {
+        RecentDownload.State.DOWNLOADING -> R.string.recent_downloading
+        RecentDownload.State.SAVED -> R.string.recent_saved
+        RecentDownload.State.FAILED -> R.string.recent_failed
+        RecentDownload.State.NEEDS_LOGIN -> R.string.recent_needs_login
+        RecentDownload.State.WAITING -> R.string.recent_waiting
+    }
 
     private companion object {
         const val REFRESH_MS = 2000L

@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">XVid</string>
     <string name="main_title">XVid</string>
-    <string name="main_help">In the X app, open a post with a video, tap Share and choose XVid. The video downloads on this phone into Movies/XVid, where your gallery and Google Photos show it.</string>
+    <string name="main_help">In the X app, open a post with a video, tap Share and choose XVid, or paste its link above. The video downloads on this phone into Movies/XVid, where your gallery and Google Photos show it.</string>
     <string name="channel_downloads">Phone downloads</string>
     <string name="channel_results">Finished downloads</string>
     <string name="toast_downloading">Downloading to the phone…</string>

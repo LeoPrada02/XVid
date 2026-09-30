@@ -6,7 +6,8 @@ package app.xvid.core
  *   when the connection is back (up to [MAX_CONNECTION_RETRIES] times, counting
  *   retries the app was stopped in the middle of);
  * - something a newer yt-dlp might fix: updates yt-dlp and retries once;
- * - needs login, or an X login that X no longer accepts (expired) even with the
+ * - needs login, no video while logged out (how X shows sensitive posts to logged-out
+ *   visitors), or an X login that X no longer accepts (expired) even with the
  *   newest yt-dlp: asks for an X login, and the post waits to be retried by
  *   [retryAfterLogin] once the phone is logged in;
  * - permanent: fails with the reason, never retried.
@@ -29,7 +30,7 @@ class RetryingPhoneDownloads(
         XPostLink.find(sharedText)?.let { recent?.started(it.url) }
         val result = attempt(sharedText, onProgress)
         val url = XPostLink.find(sharedText)?.url ?: return result.outcome
-        recent?.ended(url, result.outcome)
+        recent?.ended(url, result.outcome, waitingForConnection = result.waitFor == WaitFor.CONNECTION)
         when (result.waitFor) {
             WaitFor.CONNECTION -> synchronized(this) { save(load().filterNot { it.url == url } + Waiting(url, retries = 0)) }
             WaitFor.LOGIN -> waitForLogin(url)
@@ -92,7 +93,7 @@ class RetryingPhoneDownloads(
                 result.waitFor == WaitFor.CONNECTION -> PhoneDownloadOutcome.Failed(NO_CONNECTION)
                 else -> result.outcome
             }
-            recent?.ended(waiting.url, outcome)
+            recent?.ended(waiting.url, outcome, waitingForConnection = retryAgain)
             if (!retryAgain) onResult(outcome)
         }
         return hasWaiting()
@@ -114,6 +115,9 @@ class RetryingPhoneDownloads(
     private fun attempt(text: String, onProgress: (Int?) -> Unit): Attempt {
         val first = downloadOnce(text, onProgress)
         val firstFailure = first.outcome as? PhoneDownloadOutcome.Failed ?: return first
+        if (first.online && !loggedIn() && Failures.hiddenWhenLoggedOut(firstFailure.reason)) {
+            return Attempt(PhoneDownloadOutcome.NeedsLogin(firstFailure.reason), first.online, WaitFor.LOGIN)
+        }
         if (Failures.classify(firstFailure.reason, first.online) != FailureKind.OTHER) {
             return failed(firstFailure, first.online)
         }

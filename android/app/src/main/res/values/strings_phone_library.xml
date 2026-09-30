@@ -2,10 +2,12 @@
 <!-- The Phone library section and screen. -->
 <resources>
     <string name="library_title">Phone library</string>
-    <plurals name="library_summary">
-        <item quantity="one">%1$d video in Movies/XVid · tap to browse</item>
-        <item quantity="other">%1$d videos in Movies/XVid · tap to browse</item>
+    <plurals name="library_count">
+        <item quantity="one">%1$d video in Movies/XVid</item>
+        <item quantity="other">%1$d videos in Movies/XVid</item>
     </plurals>
+    <string name="library_see_all">See all</string>
+    <string name="library_tile_meta">%1$s · %2$s</string>
     <string name="library_open">Tap to browse the videos in Movies/XVid</string>
     <string name="library_loading">Loading…</string>
     <string name="library_empty">No videos yet. Share an X post to XVid and it downloads here.</string>

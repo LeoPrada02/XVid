@@ -12,7 +12,15 @@ import kotlinx.serialization.json.put
 
 /** A recent phone download and how it's going or how it ended. [detail] is shown under it. */
 data class RecentDownload(val url: String, val state: State, val detail: String, val time: Long) {
-    enum class State { DOWNLOADING, SAVED, FAILED, NEEDS_LOGIN }
+    enum class State {
+        DOWNLOADING,
+        SAVED,
+        FAILED,
+        NEEDS_LOGIN,
+
+        /** Failed for lack of a connection, and retried when it's back. */
+        WAITING,
+    }
 }
 
 /**
@@ -39,20 +47,31 @@ class RecentDownloads(private val storage: Storage, private val clock: Clock) {
 
     fun started(url: String) = put(url, RecentDownload.State.DOWNLOADING, "")
 
-    fun ended(url: String, outcome: PhoneDownloadOutcome) = when (outcome) {
+    /** [waitingForConnection]: the download failed but is retried when the connection is back. */
+    fun ended(url: String, outcome: PhoneDownloadOutcome, waitingForConnection: Boolean = false) = when (outcome) {
         is PhoneDownloadOutcome.Saved -> put(
             url,
             RecentDownload.State.SAVED,
             outcome.videos.singleOrNull()?.name ?: "${outcome.videos.size} videos",
         )
-        is PhoneDownloadOutcome.Failed -> put(url, RecentDownload.State.FAILED, outcome.reason)
+        is PhoneDownloadOutcome.Failed ->
+            put(url, if (waitingForConnection) RecentDownload.State.WAITING else RecentDownload.State.FAILED, outcome.reason)
         is PhoneDownloadOutcome.NeedsLogin -> put(url, RecentDownload.State.NEEDS_LOGIN, outcome.reason)
+    }
+
+    /** Forgets the downloads that are over (saved or failed), keeping those still going or waiting. */
+    @Synchronized
+    fun clearFinished() {
+        save(list().filterNot { it.state == RecentDownload.State.SAVED || it.state == RecentDownload.State.FAILED })
     }
 
     /** Puts [url] at the top with its new state, replacing its older entry. */
     @Synchronized
     private fun put(url: String, state: RecentDownload.State, detail: String) {
-        val entries = listOf(RecentDownload(url, state, detail, clock.now())) + list().filterNot { it.url == url }
+        save(listOf(RecentDownload(url, state, detail, clock.now())) + list().filterNot { it.url == url })
+    }
+
+    private fun save(entries: List<RecentDownload>) {
         val json = buildJsonArray {
             for (entry in entries.take(MAX)) addJsonObject {
                 put("url", entry.url)

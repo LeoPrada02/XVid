@@ -7,12 +7,10 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.util.TypedValue
 import android.webkit.CookieManager
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.LinearLayout
-import android.widget.TextView
 import android.widget.Toast
 
 /**
@@ -53,14 +51,11 @@ class XLoginActivity : Activity() {
                 }
             }
         }
-        val padding = dp(16)
         setContentView(
-            LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                addView(TextView(context).apply {
-                    setText(R.string.x_login_help)
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-                    setPadding(padding, padding * 2, padding, padding)
+            column {
+                setBackgroundColor(color(R.color.bg))
+                addView(text(TextStyle.MUTED, R.string.x_login_help).apply {
+                    setPadding(dp(16), dp(24), dp(16), dp(12))
                 })
                 addView(web, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
             },
