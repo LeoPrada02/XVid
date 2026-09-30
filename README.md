@@ -146,3 +146,16 @@ remove the certificate (*Settings → Encryption & credentials → User credenti
 - **Windows asked whether Python can use networks:** allow it on **Private** networks.
 - **A PC is missing on the phone:** open the app once while the home PC is on, so it learns about
   new PCs. If a PC's address changed, run `setup.cmd` again on it. It tells the home PC by itself.
+
+## Tests
+
+`tests/` is a pytest suite for the PC's HTTP API: login and lockout, pairing, the PC list and
+joining, To PC jobs, upload, thumbnails, delete, the PC library listing, and media links.
+It runs the app in-process (FastAPI's test client) with a temporary library and data folder and
+a fake yt-dlp, so it never touches the network, your library or your token. Tests only talk to
+the app over HTTP.
+
+```
+python -m pip install -r requirements-dev.txt
+python -m pytest
+```
