@@ -3,9 +3,8 @@
 import base64
 import json
 
-from conftest import LOCAL, OTHER_PC, PC_IP, TOKEN, bearer, login
+from conftest import HTTPS_PORT, LOCAL, OTHER_PC, PC_IP, PC_URL, TOKEN, bearer, login
 
-SELF_URL = f"https://{PC_IP}:8443"
 LAPTOP_URL = "https://192.0.2.31:8443"
 
 
@@ -19,7 +18,7 @@ def join_code(pc) -> str:
     assert code.startswith("XVID-")
     raw = code.removeprefix("XVID-")
     payload = json.loads(base64.urlsafe_b64decode(raw + "=" * (-len(raw) % 4)))
-    assert (payload["h"], payload["p"]) == (PC_IP, 8443)
+    assert (payload["h"], payload["p"]) == (PC_IP, HTTPS_PORT)
     assert len(payload["f"]) == 64  # certificate fingerprint (SHA-256, hex)
     return payload["c"]
 
@@ -36,7 +35,7 @@ def pcs(pc) -> list[dict]:
 
 def test_a_new_pc_lists_only_itself_as_home(phone_ready):
     [this] = pcs(phone_ready)
-    assert this["url"] == SELF_URL and this["home"] is True and this["name"]
+    assert this["url"] == PC_URL and this["home"] is True and this["name"]
 
 
 def test_pc_list_needs_login(phone_ready):
@@ -50,7 +49,7 @@ def test_joining_hands_over_the_token_and_certificate_authority(phone_ready):
     assert res.status_code == 200, res.text
     body = res.json()
     assert body["token"] == TOKEN
-    assert body["home"] == SELF_URL
+    assert body["home"] == PC_URL
     assert body["ca_cert"] == "fake root ca cert" and body["ca_key"] == "fake root ca key"
     assert {"name": "laptop", "url": LAPTOP_URL, "home": False} in body["pcs"]
 
@@ -58,7 +57,7 @@ def test_joining_hands_over_the_token_and_certificate_authority(phone_ready):
 def test_a_joined_pc_appears_in_the_list(phone_ready):
     join(phone_ready, join_code(phone_ready))
     listed = pcs(phone_ready)
-    assert listed[0]["url"] == SELF_URL
+    assert listed[0]["url"] == PC_URL
     assert listed[1:] == [{"name": "laptop", "url": LAPTOP_URL, "home": False}]
 
 
@@ -107,7 +106,7 @@ def test_announce_adds_and_updates_a_pc(phone_ready):
 
 def test_announcing_this_pcs_own_address_is_ignored(phone_ready):
     session = login(phone_ready.client())["session"]
-    res = phone_ready.client(OTHER_PC).post("/api/pcs/announce", json={"name": "impostor", "url": SELF_URL},
+    res = phone_ready.client(OTHER_PC).post("/api/pcs/announce", json={"name": "impostor", "url": PC_URL},
                                             headers=bearer(session))
     assert res.status_code == 200
     assert len(res.json()) == 1 and res.json()[0]["name"] != "impostor"

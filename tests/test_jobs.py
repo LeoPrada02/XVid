@@ -5,17 +5,11 @@ import time
 
 import pytest
 
-from conftest import bearer, login
+from conftest import login
 
 POST_URL = "https://twitter.com/someone/status/1234567890?s=20&t=abc"
 CANONICAL = "https://x.com/someone/status/1234567890"
 VIDEO = "someone_1234567890.mp4"
-
-
-@pytest.fixture
-def phone(pc):
-    session = login(pc.client())["session"]
-    return pc.client(headers=bearer(session))
 
 
 def wait_for_job(client, job_id: str) -> dict:

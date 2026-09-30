@@ -35,14 +35,3 @@ data class PhoneVideo(val id: String, val name: String)
 interface NetworkState {
     fun isOnline(): Boolean
 }
-
-/** Small persistent key-value storage private to the phone app. */
-interface Storage {
-    fun get(key: String): String?
-    fun put(key: String, value: String?)
-}
-
-/** Wall-clock time, in milliseconds since the epoch. */
-interface Clock {
-    fun now(): Long
-}

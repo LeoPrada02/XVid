@@ -11,6 +11,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import app.xvid.core.PhoneLibrary
 import app.xvid.core.PhoneVideo
+import app.xvid.core.VideoTypes
 import java.io.File
 
 /**
@@ -29,7 +30,7 @@ class MediaStorePhoneLibrary(private val context: Context) : PhoneLibrary {
         val resolver = context.contentResolver
         val values = ContentValues().apply {
             put(MediaStore.Video.Media.DISPLAY_NAME, name)
-            put(MediaStore.Video.Media.MIME_TYPE, mimeTypeOf(name))
+            put(MediaStore.Video.Media.MIME_TYPE, VideoTypes.mimeTypeOf(name))
             put(MediaStore.Video.Media.RELATIVE_PATH, "${Environment.DIRECTORY_MOVIES}/$FOLDER")
             put(MediaStore.Video.Media.IS_PENDING, 1)
         }
@@ -62,10 +63,14 @@ class MediaStorePhoneLibrary(private val context: Context) : PhoneLibrary {
             put(MediaStore.Video.Media.DATA, target.absolutePath)
             put(MediaStore.Video.Media.DISPLAY_NAME, target.name)
             put(MediaStore.Video.Media.TITLE, target.nameWithoutExtension)
-            put(MediaStore.Video.Media.MIME_TYPE, mimeTypeOf(target.name))
+            put(MediaStore.Video.Media.MIME_TYPE, VideoTypes.mimeTypeOf(target.name))
         }
+        // Only a content:// URI can be handed to a video player; a file:// one is refused.
         return context.contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-            ?: Uri.fromFile(target)
+            ?: run {
+                target.delete()
+                error("The media store refused the video")
+            }
     }
 
     private fun uniqueFile(folder: File, name: String): File {
@@ -76,13 +81,6 @@ class MediaStorePhoneLibrary(private val context: Context) : PhoneLibrary {
             n++
         }
         return candidate
-    }
-
-    private fun mimeTypeOf(name: String) = when (name.substringAfterLast('.').lowercase()) {
-        "webm" -> "video/webm"
-        "mkv" -> "video/x-matroska"
-        "mov" -> "video/quicktime"
-        else -> "video/mp4"
     }
 
     private companion object {

@@ -35,13 +35,17 @@ class PhoneDownloads(
             }
             if (files.isEmpty()) return PhoneDownloadOutcome.Failed("No video in this post")
 
-            val videos = files.sortedBy { it.name }.mapIndexed { index, file ->
-                val number = if (files.size > 1) "_${index + 1}" else ""
-                library.add(file, "XVid_${link.statusId}$number.${file.extension.ifEmpty { "mp4" }}")
+            val videos = try {
+                files.sortedBy { it.name }.mapIndexed { index, file ->
+                    val number = if (files.size > 1) "_${index + 1}" else ""
+                    library.add(file, "XVid_${link.statusId}$number.${file.extension.ifEmpty { "mp4" }}")
+                }
+            } catch (e: Exception) {
+                return PhoneDownloadOutcome.Failed("Couldn't save the video: ${describe(e)}")
             }
             return PhoneDownloadOutcome.Saved(videos)
         } catch (e: Exception) {
-            return PhoneDownloadOutcome.Failed("Couldn't save the video: ${e.message ?: e.javaClass.simpleName}")
+            return PhoneDownloadOutcome.Failed("The download failed: ${describe(e)}")
         } finally {
             jobDir.deleteRecursively()
         }
@@ -50,6 +54,8 @@ class PhoneDownloads(
     private companion object {
         /** Best video merged with best audio, or the best single file that has both. */
         const val BEST_QUALITY = "bv*+ba/b"
+
+        fun describe(e: Exception) = e.message ?: e.javaClass.simpleName
 
         private val extractorPrefix = Regex("""^\[[^\]]+]\s*(?:[^:\s]+:\s*)?""")
 

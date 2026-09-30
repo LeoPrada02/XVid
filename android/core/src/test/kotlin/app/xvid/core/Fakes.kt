@@ -4,11 +4,13 @@ import java.io.File
 
 /**
  * Stands in for yt-dlp. Each call writes [videosPerPost] files into the output
- * folder (or throws [failWith]) and remembers the request it got.
+ * folder (or throws [failWith] as an [EngineError], or [crashWith] as it is)
+ * and remembers the request it got.
  */
 class FakeEngine(
     var videosPerPost: Int = 1,
     var failWith: String? = null,
+    var crashWith: Exception? = null,
     var progressSteps: List<Float> = listOf(0f, 50f, 100f),
 ) : DownloadEngine {
     val requests = mutableListOf<EngineRequest>()
@@ -17,6 +19,7 @@ class FakeEngine(
         requests += request
         progressSteps.forEach(onProgress)
         failWith?.let { throw EngineError(it) }
+        crashWith?.let { throw it }
         request.outputDir.mkdirs()
         return (1..videosPerPost).map { n ->
             File(request.outputDir, "video$n.mp4").apply { writeText("video $n of ${request.url}") }

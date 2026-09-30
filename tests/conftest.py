@@ -21,6 +21,8 @@ from fastapi.testclient import TestClient
 REPO = Path(__file__).resolve().parent.parent
 TOKEN = "test-token-not-a-secret"
 PC_IP = "192.0.2.10"  # documentation address (TEST-NET-1), never a real network
+HTTPS_PORT = 8443
+PC_URL = f"https://{PC_IP}:{HTTPS_PORT}"  # this PC, as phones and other PCs reach it
 LOCAL = ("127.0.0.1", 50000)  # a browser on the PC itself
 PHONE = ("192.0.2.20", 50000)  # a phone on the home Wi-Fi
 OTHER_PC = ("192.0.2.30", 50000)
@@ -148,6 +150,13 @@ def enable_phone_access(pc) -> None:
 def phone_ready(pc):
     enable_phone_access(pc)
     return pc
+
+
+@pytest.fixture
+def phone(pc):
+    """A logged-in client on the home Wi-Fi."""
+    session = login(pc.client())["session"]
+    return pc.client(headers=bearer(session))
 
 
 def login(client: TestClient, token: str = TOKEN) -> dict:

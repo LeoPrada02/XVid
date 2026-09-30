@@ -4,15 +4,9 @@ import os
 
 import pytest
 
-from conftest import bearer, login
+from conftest import login
 
 JPEG = b"\xff\xd8\xff\xe0 a tiny fake jpeg"
-
-
-@pytest.fixture
-def phone(pc):
-    session = login(pc.client())["session"]
-    return pc.client(headers=bearer(session))
 
 
 def upload(client, filename: str = "holiday.mp4", data: bytes = b"video data"):

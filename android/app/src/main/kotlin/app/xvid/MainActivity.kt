@@ -1,9 +1,6 @@
 package app.xvid
 
-import android.Manifest
 import android.app.Activity
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.util.TypedValue
 import android.widget.LinearLayout
@@ -36,10 +33,7 @@ class MainActivity : Activity() {
     }
 
     private fun requestMissingPermissions() {
-        val wanted = buildList {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        }.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+        val wanted = Permissions.missing(this)
         if (wanted.isNotEmpty()) requestPermissions(wanted.toTypedArray(), 1)
     }
 

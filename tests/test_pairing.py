@@ -2,7 +2,7 @@
 
 from urllib.parse import parse_qs, urlparse
 
-from conftest import LOCAL, PC_IP, bearer, login
+from conftest import LOCAL, PC_IP, PC_URL, bearer, login
 
 
 def create_code(pc) -> str:
@@ -15,7 +15,7 @@ def create_code(pc) -> str:
     assert url.scheme == "http" and url.hostname == PC_IP and url.path == "/setup"
     assert url.query == ""  # the code travels in the #fragment, never sent over plain HTTP
     fragment = parse_qs(url.fragment)
-    assert fragment["pc"] == [f"https://{PC_IP}:8443"]
+    assert fragment["pc"] == [PC_URL]
     return fragment["pair"][0]
 
 

@@ -4,6 +4,7 @@ import android.content.Context
 import app.xvid.core.DownloadEngine
 import app.xvid.core.EngineError
 import app.xvid.core.EngineRequest
+import app.xvid.core.VideoTypes
 import com.yausername.ffmpeg.FFmpeg
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
@@ -33,7 +34,7 @@ class YoutubeDlEngine(private val context: Context) : DownloadEngine {
             throw EngineError(e.message ?: e.javaClass.simpleName)
         }
         return request.outputDir.listFiles().orEmpty()
-            .filter { it.isFile && it.extension.lowercase() in VIDEO_EXTENSIONS }
+            .filter { it.isFile && VideoTypes.isVideo(it) }
     }
 
     @Synchronized
@@ -46,9 +47,5 @@ class YoutubeDlEngine(private val context: Context) : DownloadEngine {
             throw EngineError("Couldn't start the downloader: ${e.message}")
         }
         ready = true
-    }
-
-    private companion object {
-        val VIDEO_EXTENSIONS = setOf("mp4", "mkv", "webm", "mov", "m4v")
     }
 }

@@ -10,7 +10,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.os.SystemClock as AndroidClock
+import android.os.SystemClock
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
@@ -55,7 +55,7 @@ class DownloadService : Service() {
         var lastUpdate = 0L
         showProgress(null)
         val outcome = (application as XVidApp).phoneDownloads.download(text) { percent ->
-            val now = AndroidClock.elapsedRealtime()
+            val now = SystemClock.elapsedRealtime()
             if (percent != lastPercent && now - lastUpdate >= PROGRESS_INTERVAL_MS) {
                 lastPercent = percent
                 lastUpdate = now

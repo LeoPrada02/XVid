@@ -67,6 +67,16 @@ class PhoneDownloadsTest {
     }
 
     @Test
+    fun `an unexpected engine crash isn't reported as a save problem`() {
+        engine.crashWith = IllegalStateException("Out of memory")
+
+        val outcome = downloads.download("https://x.com/someone/status/1")
+
+        assertEquals(PhoneDownloadOutcome.Failed("The download failed: Out of memory"), outcome)
+        assertTrue(library.videos.isEmpty())
+    }
+
+    @Test
     fun `a post that yields no files fails`() {
         engine.videosPerPost = 0
 
