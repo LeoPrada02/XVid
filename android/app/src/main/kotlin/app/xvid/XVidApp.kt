@@ -1,6 +1,7 @@
 package app.xvid
 
 import android.app.Application
+import app.xvid.core.MaximumQualitySetting
 import app.xvid.core.PhoneDownloads
 import app.xvid.core.UpdateCheck
 import java.io.File
@@ -13,8 +14,11 @@ class XVidApp : Application() {
             library = MediaStorePhoneLibrary(this),
             network = AndroidNetworkState(this),
             workDir = File(cacheDir, "downloads"),
+            maximumQuality = maximumQuality::current,
         )
     }
+
+    val maximumQuality: MaximumQualitySetting by lazy { MaximumQualitySetting(PreferencesStorage(this)) }
 
     /** Null in local builds, which don't know which GitHub repo they come from. */
     val updateCheck: UpdateCheck? by lazy {

@@ -27,6 +27,10 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false" />
+
         <!-- Share → XVid: starts a phone download and closes straight away. -->
         <activity
             android:name=".ShareActivity"
