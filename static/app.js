@@ -647,6 +647,7 @@ async function openPairing() {
     showInstallStep();
   }
   $("#pair-qr").replaceChildren();
+  $("#pair-app-qr").replaceChildren();
   $("#pair-status").textContent = "Creating a code…";
   clearInterval(pairTimer);
   let pairing;
@@ -657,12 +658,14 @@ async function openPairing() {
     return;
   }
   // The SVG comes from this PC (the qrcode library), not from user input.
+  $("#pair-app-qr").innerHTML = pairing.app.svg;
   $("#pair-qr").innerHTML = pairing.svg;
   $("#pair-url").textContent = pairing.url;
   pairTimer = startCountdown(pairing.expires_in,
     (left) => ($("#pair-status").textContent = `One-time code, expires in ${fmtCountdown(left)}.`),
     () => {
       $("#pair-qr").replaceChildren();
+      $("#pair-app-qr").replaceChildren();
       $("#pair-status").textContent = "This code expired. Tap New code.";
     });
 }

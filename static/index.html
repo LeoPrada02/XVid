@@ -96,10 +96,16 @@
       </div>
       <p id="install-status" class="muted small"></p>
       <h3>2. Connect the phone</h3>
-      <p class="muted small">Connect the phone to the same Wi-Fi as this PC, then scan with its camera.</p>
-      <div id="pair-qr" class="qr"></div>
+      <p class="muted small">Connect the phone to the same Wi-Fi as this PC. Open the XVid app, tap
+        <b>Pair with a PC</b> and scan this code. It also connects the phone to every PC that joined this one.</p>
+      <div id="pair-app-qr" class="qr"></div>
       <p id="pair-status" class="muted small"></p>
-      <p class="small"><code id="pair-url"></code></p>
+      <details class="small">
+        <summary>Using the old web app instead?</summary>
+        <p class="muted">Scan this one with the phone's camera instead.</p>
+        <div id="pair-qr" class="qr"></div>
+        <p><code id="pair-url"></code></p>
+      </details>
       <div class="actions">
         <button id="pair-new" class="secondary">New code</button>
         <button id="pair-close">Done</button>

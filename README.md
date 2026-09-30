@@ -179,6 +179,14 @@ outside it and the build outputs go there instead.
 
 Local builds are `-dev` versions and don't check for updates.
 
+**Pairing the phone app:** in XVid on the PC, click **Add a phone**; in the app, tap **Pair with
+a PC** and scan the code in step 2. That code holds the PC's address, a one-time code (10 minutes)
+and the SHA-256 fingerprint of the PCs' certificate authority. The app fetches the authority's
+public certificate from the PC, checks it against the fingerprint, and only then sends the code,
+over a connection that trusts that authority alone. The app trusts it for its own connections
+only, never system-wide, so there's no certificate to install in Android settings. Pairing with
+one PC covers every PC that joined it: the app learns them from any reachable PC's PC list.
+
 ### Releasing the phone app
 
 Pushing a version tag runs `.github/workflows/release.yml`: it runs the core module's tests,

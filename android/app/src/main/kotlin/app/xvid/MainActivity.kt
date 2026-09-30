@@ -35,6 +35,7 @@ class MainActivity : Activity() {
                     setPadding(0, dp(24), 0, 0)
                 })
                 addView(updateLink)
+                addView(PcSectionsView(this@MainActivity))
             },
         )
         requestMissingPermissions()

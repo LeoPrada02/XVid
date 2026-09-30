@@ -84,4 +84,6 @@ dependencies {
     implementation(project(":core"))
     implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")
     implementation("io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1")
+    // Scans the pairing QR code. Runs in Google Play services: no camera permission, and small.
+    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
 }

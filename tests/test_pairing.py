@@ -1,9 +1,12 @@
 """Pairing a phone: the PC makes a one-time code (shown as a QR code), and the phone redeems it to log in."""
 
+import hashlib
 import json
 from urllib.parse import parse_qs, urlparse
 
-from conftest import LOCAL, PC_IP, PC_URL, bearer, login
+from conftest import CA_DER, CA_PEM, LOCAL, PC_IP, PC_URL, bearer, login
+
+CA_FINGERPRINT = hashlib.sha256(CA_DER).hexdigest()
 
 
 def create_code(pc) -> str:
@@ -78,6 +81,61 @@ def test_only_the_pc_itself_can_create_codes(phone_ready):
 
 def test_no_codes_before_phone_access_is_set_up(pc):
     assert pc.client(LOCAL).post("/api/pair").status_code == 409
+
+
+# Step 2 of Add a phone: the QR code the phone app scans. It carries this PC's address, the one-time
+# code and the certificate authority's fingerprint, so the app can trust this PC without a
+# certificate install in Android settings.
+
+def app_pairing(pc) -> dict:
+    """Creates a code; returns what the app's QR code says (pc, code, fp)."""
+    res = pc.client(LOCAL).post("/api/pair")
+    assert res.status_code == 200, res.text
+    app = res.json()["app"]
+    assert app["svg"].startswith("<")
+    text = urlparse(app["text"])
+    assert (text.scheme, text.netloc, text.path) == ("xvid", "pair", "")
+    return {key: values[0] for key, values in parse_qs(text.query).items()}
+
+
+def test_the_app_qr_code_carries_the_address_a_code_and_the_ca_fingerprint(phone_ready):
+    payload = app_pairing(phone_ready)
+    assert payload["pc"] == PC_URL
+    assert payload["fp"] == CA_FINGERPRINT  # SHA-256 of the CA certificate (DER), in hex
+    assert len(payload["code"]) >= 16
+
+
+def test_the_app_code_logs_the_phone_in_once(phone_ready):
+    code = app_pairing(phone_ready)["code"]
+    res = redeem(phone_ready.client(), code)
+    assert res.status_code == 200
+    assert phone_ready.client().get("/api/me", headers=bearer(res.json()["session"])).status_code == 200
+    assert redeem(phone_ready.client(), code).status_code == 401
+
+
+def test_the_app_code_expires_after_ten_minutes(phone_ready):
+    code = app_pairing(phone_ready)["code"]
+    phone_ready.clock.advance(601)
+    assert redeem(phone_ready.client(), code).status_code == 401
+
+
+def test_wrong_codes_lock_the_app_out_too(phone_ready):
+    phone = phone_ready.client()
+    for _ in range(5):
+        assert redeem(phone, "made-up").status_code == 401
+    assert redeem(phone, app_pairing(phone_ready)["code"]).status_code == 429
+    phone_ready.clock.advance(301)
+    assert redeem(phone, app_pairing(phone_ready)["code"]).status_code == 200
+
+
+def test_the_app_gets_the_ca_certificate_it_checks_against_the_fingerprint(phone_ready):
+    res = phone_ready.client().get("/api/pair/ca")  # before the phone has a session
+    assert res.status_code == 200
+    assert res.text == CA_PEM
+
+
+def test_no_ca_certificate_before_phone_access_is_set_up(pc):
+    assert pc.client().get("/api/pair/ca").status_code == 404
 
 
 # Step 1 of Add a phone: install the app from the latest GitHub Release.
