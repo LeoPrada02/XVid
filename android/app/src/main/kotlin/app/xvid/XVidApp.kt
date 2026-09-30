@@ -2,6 +2,7 @@ package app.xvid
 
 import android.app.Application
 import app.xvid.core.PhoneDownloads
+import app.xvid.core.PhoneLibraryBrowser
 import app.xvid.core.UpdateCheck
 import java.io.File
 
@@ -13,6 +14,14 @@ class XVidApp : Application() {
             library = MediaStorePhoneLibrary(this),
             network = AndroidNetworkState(this),
             workDir = File(cacheDir, "downloads"),
+        )
+    }
+
+    val phoneLibrary: PhoneLibraryBrowser by lazy {
+        PhoneLibraryBrowser(
+            folder = MediaStorePhoneLibraryFolder(this),
+            thumbnails = FrameThumbnailMaker(this),
+            thumbnailDir = File(cacheDir, "thumbnails"),
         )
     }
 
