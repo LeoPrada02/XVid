@@ -187,6 +187,13 @@ over a connection that trusts that authority alone. The app trusts it for its ow
 only, never system-wide, so there's no certificate to install in Android settings. Pairing with
 one PC covers every PC that joined it: the app learns them from any reachable PC's PC list.
 
+**X login on the phone:** the phone app has its own X login, separate from the PCs'
+`cookies.txt`. In the app's Settings, tap **Log in to X** and log in with your username and
+password (Google sign-in doesn't work inside the app). The session cookies stay in the app's
+private storage and go to yt-dlp with every phone download. Nothing checks whether the login has
+expired: a download that needs a login notifies "Log in to X in XVid", tapping it opens the login
+page, and the download retries by itself once you've logged in.
+
 ### Releasing the phone app
 
 Pushing a version tag runs `.github/workflows/release.yml`: it runs the core module's tests,

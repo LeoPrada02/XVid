@@ -4,14 +4,18 @@ import android.app.Activity
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.View
+import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.TextView
 import app.xvid.core.MaximumQuality
 
-/** Settings: the Maximum quality for phone downloads (Best / 720p / 480p). */
+/** Settings: the Maximum quality for phone downloads (Best / 720p / 480p), and the X login. */
 class SettingsActivity : Activity() {
+    private val loginStatus by lazy { TextView(this).apply { setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f) } }
+    private val loginButton by lazy { Button(this) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val setting = (application as XVidApp).maximumQuality
@@ -46,8 +50,35 @@ class SettingsActivity : Activity() {
                         })
                     }
                 })
+                addView(TextView(context).apply {
+                    setText(R.string.settings_x_login)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+                    setPadding(0, dp(32), 0, dp(4))
+                })
+                addView(loginStatus)
+                addView(loginButton)
             },
         )
+    }
+
+    /** Shown again when coming back from the login page. */
+    override fun onResume() {
+        super.onResume()
+        showXLogin()
+    }
+
+    private fun showXLogin() {
+        val loggedIn = (application as XVidApp).xLogin.isLoggedIn()
+        loginStatus.setText(if (loggedIn) R.string.settings_x_logged_in else R.string.settings_x_logged_out)
+        loginButton.setText(if (loggedIn) R.string.settings_x_log_out else R.string.settings_x_log_in)
+        loginButton.setOnClickListener {
+            if (loggedIn) {
+                XLoginActivity.logOut(this)
+                showXLogin()
+            } else {
+                startActivity(XLoginActivity.intent(this))
+            }
+        }
     }
 
     private fun labelOf(quality: MaximumQuality) = when (quality) {

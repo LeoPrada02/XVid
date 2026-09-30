@@ -11,13 +11,15 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
+import app.xvid.core.PhoneDownloadOutcome
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Runs phone downloads one after another in the foreground, with a progress
- * notification, then posts a Saved or failed notification for each.
+ * notification, then posts a Saved or failed notification for each. After an
+ * X login it also retries the downloads that needed one.
  */
 class DownloadService : Service() {
     private lateinit var executor: ExecutorService
@@ -41,7 +43,8 @@ class DownloadService : Service() {
         goForeground()
         lastStartId = startId
         val text = intent?.getStringExtra(EXTRA_TEXT)
-        if (text == null) {
+        val afterLogin = intent?.action == ACTION_RETRY_AFTER_LOGIN
+        if (text == null && !afterLogin) {
             if (pending == 0) stopWhenIdle()
             return START_NOT_STICKY
         }
@@ -50,11 +53,13 @@ class DownloadService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun run(text: String) {
+    /** Downloads the post in [text], or with none retries the downloads that needed an X login. */
+    private fun run(text: String?) {
         var lastPercent: Int? = -1
         var lastUpdate = 0L
         showProgress(null)
-        val outcome = (application as XVidApp).retryingDownloads.download(text) { percent ->
+        val downloads = (application as XVidApp).retryingDownloads
+        val onProgress = { percent: Int? ->
             val now = SystemClock.elapsedRealtime()
             if (percent != lastPercent && now - lastUpdate >= PROGRESS_INTERVAL_MS) {
                 lastPercent = percent
@@ -62,7 +67,10 @@ class DownloadService : Service() {
                 showProgress(percent)
             }
         }
-        notifications.notify(nextResultId.getAndIncrement(), Notifications.result(this, outcome))
+        val onResult = { outcome: PhoneDownloadOutcome ->
+            notifications.notify(nextResultId.getAndIncrement(), Notifications.result(this, outcome))
+        }
+        if (text != null) onResult(downloads.download(text, onProgress)) else downloads.retryAfterLogin(onProgress, onResult)
         if ((application as XVidApp).retryingDownloads.hasWaiting()) BackgroundWork.retryWhenOnline(this)
         (application as XVidApp).updateCheck?.releaseToNotify()?.let {
             notifications.notify(UPDATE_ID, Notifications.update(this, it))
@@ -100,6 +108,7 @@ class DownloadService : Service() {
 
     companion object {
         private const val EXTRA_TEXT = "text"
+        private const val ACTION_RETRY_AFTER_LOGIN = "app.xvid.RETRY_AFTER_LOGIN"
         private const val PROGRESS_ID = 1
         private const val UPDATE_ID = 2
         private const val PROGRESS_INTERVAL_MS = 500L
@@ -108,6 +117,14 @@ class DownloadService : Service() {
         /** Starts a phone download of the X post in [sharedText]. */
         fun start(context: Context, sharedText: String) {
             context.startForegroundService(Intent(context, DownloadService::class.java).putExtra(EXTRA_TEXT, sharedText))
+        }
+
+        /** Retries the phone downloads that needed an X login, if any. Called right after logging in. */
+        fun retryAfterLogin(context: Context) {
+            if (!(context.applicationContext as XVidApp).retryingDownloads.hasWaitingForLogin()) return
+            context.startForegroundService(
+                Intent(context, DownloadService::class.java).setAction(ACTION_RETRY_AFTER_LOGIN),
+            )
         }
     }
 }

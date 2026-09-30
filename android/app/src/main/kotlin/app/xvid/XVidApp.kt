@@ -7,6 +7,7 @@ import app.xvid.core.PhoneDownloads
 import app.xvid.core.PhoneLibraryBrowser
 import app.xvid.core.RetryingPhoneDownloads
 import app.xvid.core.UpdateCheck
+import app.xvid.core.XLogin
 import app.xvid.core.YtDlpUpdates
 import java.io.File
 
@@ -18,6 +19,9 @@ class XVidApp : Application() {
     /** The Maximum quality setting (see SettingsActivity). */
     val maximumQuality: MaximumQualitySetting by lazy { MaximumQualitySetting(storage) }
 
+    /** The phone's own X login (see XLoginActivity and SettingsActivity). */
+    val xLogin: XLogin by lazy { XLogin(storage) }
+
     val ytDlpUpdates: YtDlpUpdates by lazy { YtDlpUpdates(YoutubeDlUpdater(this), storage, WallClock) }
 
     private val phoneDownloads: PhoneDownloads by lazy {
@@ -27,12 +31,13 @@ class XVidApp : Application() {
             network = network,
             workDir = File(cacheDir, "downloads"),
             maximumQuality = maximumQuality::current,
+            xLogin = xLogin::cookies,
         )
     }
 
     /** Phone downloads with retries and yt-dlp updates: what the share sheet and background work use. */
     val retryingDownloads: RetryingPhoneDownloads by lazy {
-        RetryingPhoneDownloads(phoneDownloads, network, ytDlpUpdates, storage)
+        RetryingPhoneDownloads(phoneDownloads, network, ytDlpUpdates, storage, loggedIn = xLogin::isLoggedIn)
     }
 
     val phoneLibrary: PhoneLibraryBrowser by lazy {

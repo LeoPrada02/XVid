@@ -16,8 +16,11 @@ interface DownloadEngine {
     fun download(request: EngineRequest, onProgress: (Float) -> Unit): List<File>
 }
 
-/** What to download, in which yt-dlp format, and where to put the files. */
-data class EngineRequest(val url: String, val format: String, val outputDir: File)
+/**
+ * What to download, in which yt-dlp format, and where to put the files.
+ * [cookies] is the phone's X login as a Netscape cookies file, or null when logged out.
+ */
+data class EngineRequest(val url: String, val format: String, val outputDir: File, val cookies: String? = null)
 
 /** A failed engine run. The message is yt-dlp's error output. */
 class EngineError(message: String) : Exception(message)

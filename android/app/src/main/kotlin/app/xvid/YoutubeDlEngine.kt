@@ -18,7 +18,10 @@ class YoutubeDlEngine(private val context: Context) : DownloadEngine {
     override fun download(request: EngineRequest, onProgress: (Float) -> Unit): List<File> {
         ensureReady()
         request.outputDir.mkdirs()
+        // The X login, as a file yt-dlp can read. It sits in the job folder, which is deleted after the download.
+        val cookies = request.cookies?.let { File(request.outputDir, "cookies.txt").apply { writeText(it) } }
         val ytRequest = YoutubeDLRequest(request.url).apply {
+            cookies?.let { addOption("--cookies", it.absolutePath) }
             addOption("-f", request.format)
             // Merge the best video and audio streams into one mp4 with ffmpeg.
             addOption("--merge-output-format", "mp4")

@@ -257,15 +257,13 @@ class RetryingPhoneDownloadsTest {
     }
 
     @Test
-    fun `needs-login failures say so and are not retried`() {
+    fun `needs-login failures ask for an X login and are not retried until then`() {
         engine.failWith = "ERROR: [twitter] 1: NSFW tweet requires authentication. Use --cookies, --cookies-from-browser"
 
         val outcome = downloads.download("https://x.com/someone/status/1")
 
         assertEquals(
-            PhoneDownloadOutcome.Failed(
-                "This post needs an X login: NSFW tweet requires authentication. Use --cookies, --cookies-from-browser",
-            ),
+            PhoneDownloadOutcome.NeedsLogin("NSFW tweet requires authentication. Use --cookies, --cookies-from-browser"),
             outcome,
         )
         assertEquals(1, engine.requests.size)

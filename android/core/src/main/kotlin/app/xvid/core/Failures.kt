@@ -23,6 +23,9 @@ object Failures {
         "guest token", "could not authenticate you", "bad authentication data", "querying api", "failed to query api",
     )
 
+    // What X answers when it refuses the login yt-dlp sent: an expired X login, if a newer yt-dlp doesn't help.
+    private val rejectedLogin = listOf("could not authenticate you", "bad authentication data")
+
     // Only wording about the post itself needing an account.
     private val needsLogin = listOf(
         "requires authentication", "only be available when logged in", "not authorized to see",
@@ -61,4 +64,7 @@ object Failures {
             else -> FailureKind.OTHER
         }
     }
+
+    /** Whether [reason] is X refusing the authentication it got, which an expired X login causes. */
+    fun rejectsLogin(reason: String): Boolean = reason.lowercase().let { text -> rejectedLogin.any { it in text } }
 }

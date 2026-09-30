@@ -16,6 +16,8 @@ class PhoneDownloads(
     private val workDir: File,
     /** Read at the start of each phone download, so a new choice applies to the next one. */
     private val maximumQuality: () -> MaximumQuality = { MaximumQuality.BEST },
+    /** The X login's cookies (see [XLogin.cookies]), read at the start of each phone download. */
+    private val xLogin: () -> String? = { null },
 ) {
     /**
      * Downloads the post linked in [sharedText]. [onProgress] gets a
@@ -29,7 +31,7 @@ class PhoneDownloads(
         val jobDir = File(workDir, "download-${link.statusId}-${System.nanoTime()}")
         try {
             val files = try {
-                engine.download(EngineRequest(link.url, maximumQuality().format, jobDir)) { percent ->
+                engine.download(EngineRequest(link.url, maximumQuality().format, jobDir, xLogin())) { percent ->
                     onProgress(if (percent < 0f) null else percent.toInt().coerceIn(0, 100))
                 }
             } catch (e: EngineError) {
@@ -74,4 +76,10 @@ sealed interface PhoneDownloadOutcome {
 
     /** Nothing was saved; [reason] is shown to the user. */
     data class Failed(val reason: String) : PhoneDownloadOutcome
+
+    /**
+     * Nothing was saved because the post needs an X login (or the login expired);
+     * [reason] is yt-dlp's. The post is retried after logging in.
+     */
+    data class NeedsLogin(val reason: String) : PhoneDownloadOutcome
 }

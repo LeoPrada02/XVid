@@ -10,7 +10,7 @@ import android.net.Uri
 import app.xvid.core.PhoneDownloadOutcome
 import app.xvid.core.Update
 
-/** The notifications a phone download shows: progress, then Saved or failed. */
+/** The notifications a phone download shows: progress, then Saved, failed or needs an X login. */
 object Notifications {
     private const val CHANNEL_PROGRESS = "downloads"
     private const val CHANNEL_RESULTS = "results"
@@ -60,6 +60,18 @@ object Notifications {
                 builder.setContentTitle(context.getString(R.string.notif_failed))
                     .setContentText(outcome.reason)
                     .setStyle(Notification.BigTextStyle().bigText(outcome.reason))
+            // Tapping opens the login page; the download retries by itself after logging in.
+            is PhoneDownloadOutcome.NeedsLogin ->
+                builder.setContentTitle(context.getString(R.string.notif_failed))
+                    .setContentText(context.getString(R.string.notif_needs_login))
+                    .setContentIntent(
+                        PendingIntent.getActivity(
+                            context,
+                            0,
+                            XLoginActivity.intent(context).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                        ),
+                    )
         }
         return builder.build()
     }
