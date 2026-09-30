@@ -2,6 +2,7 @@ package app.xvid
 
 import android.app.Application
 import app.xvid.core.MaximumQualitySetting
+import app.xvid.core.KnownPcs
 import app.xvid.core.PhoneDownloads
 import app.xvid.core.PhoneLibraryBrowser
 import app.xvid.core.RetryingPhoneDownloads
@@ -46,6 +47,9 @@ class XVidApp : Application() {
             UpdateCheck(GitHubReleaseFeed(repo), BuildConfig.VERSION_NAME, PreferencesStorage(this), WallClock)
         }
     }
+
+    /** Pairing and the PCs the phone knows (see PcSectionsView). */
+    val knownPcs: KnownPcs by lazy { KnownPcs(PreferencesStorage(this)) }
 
     override fun onCreate() {
         super.onCreate()

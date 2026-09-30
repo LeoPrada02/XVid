@@ -539,7 +539,25 @@ def create_pairing(request: Request) -> dict:
     # from GitHub Releases instead: see app_release.)
     fragment = urlencode({"pair": code, "home": home_url(), "pc": config.self_url()})
     url = f"http://{cert_ip()}:{HTTP_PORT}/setup#{fragment}"
-    return {"url": url, "svg": qr_svg(url), "expires_in": PAIR_TTL}
+    # The phone app scans this one instead. With the CA's fingerprint it checks it's really talking to
+    # this PC (see pairing_ca) before it sends the code, and trusts the CA for its own connections only.
+    app_text = "xvid://pair?" + urlencode({"pc": config.self_url(), "code": code, "fp": fingerprint(CA_FILE)})
+    return {"url": url, "svg": qr_svg(url), "expires_in": PAIR_TTL,
+            "app": {"text": app_text, "svg": qr_svg(app_text)}}
+
+
+@app.get("/api/pair/ca")
+def pairing_ca() -> Response:
+    """The public certificate of the CA that signs every joined PC's certificate. The phone app fetches it
+    while pairing, before it trusts this PC, and only uses it if it matches the fingerprint in the QR code."""
+    if not CA_FILE.exists():
+        raise HTTPException(404, "Phone access isn't set up yet. Run setup.cmd on the PC.")
+    return Response(CA_FILE.read_text(), media_type="application/x-pem-file")
+
+
+def fingerprint(pem_file: Path) -> str:
+    """SHA-256 of a PEM certificate's DER bytes, in hex: what a QR code or join code pins."""
+    return hashlib.sha256(ssl.PEM_cert_to_DER_cert(pem_file.read_text())).hexdigest()
 
 
 # The release workflow (.github/workflows/release.yml) attaches one APK per CPU type; this one fits most phones.
@@ -619,8 +637,7 @@ def create_join_code(request: Request) -> dict:
         raise HTTPException(409, "Add PCs from the home PC")
     if not https_ready():
         raise HTTPException(409, "Phone access isn't set up yet. Run setup.cmd on this PC first.")
-    der = ssl.PEM_cert_to_DER_cert(CERT_FILE.read_text())
-    payload = {"h": cert_ip(), "p": HTTPS_PORT, "c": new_code(join_codes), "f": hashlib.sha256(der).hexdigest()}
+    payload = {"h": cert_ip(), "p": HTTPS_PORT, "c": new_code(join_codes), "f": fingerprint(CERT_FILE)}
     code = "XVID-" + base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
     return {"code": code, "expires_in": PAIR_TTL}
 

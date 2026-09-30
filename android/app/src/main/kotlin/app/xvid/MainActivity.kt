@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.TypedValue
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 
 /**
@@ -17,31 +18,37 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         val padding = dp(24)
         setContentView(
-            LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(padding, padding * 3, padding, padding)
-                addView(TextView(context).apply {
-                    setText(R.string.main_title)
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
-                })
-                addView(TextView(context).apply {
-                    setText(R.string.main_help)
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-                    setPadding(0, dp(16), 0, 0)
-                })
-                addView(PhoneLibrarySection(context))
-                addView(TextView(context).apply {
-                    text = getString(R.string.main_version, BuildConfig.VERSION_NAME)
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-                    setPadding(0, dp(24), 0, 0)
-                })
-                addView(updateLink)
-                addView(TextView(context).apply {
-                    setText(R.string.settings_open)
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-                    setPadding(0, dp(24), 0, 0)
-                    setOnClickListener { startActivity(Intent(context, SettingsActivity::class.java)) }
-                })
+            // Scrolls: the phone library, one section per PC and the settings can outgrow a small screen.
+            ScrollView(this).apply {
+                addView(
+                    LinearLayout(context).apply {
+                        orientation = LinearLayout.VERTICAL
+                        setPadding(padding, padding * 3, padding, padding)
+                        addView(TextView(context).apply {
+                            setText(R.string.main_title)
+                            setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
+                        })
+                        addView(TextView(context).apply {
+                            setText(R.string.main_help)
+                            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                            setPadding(0, dp(16), 0, 0)
+                        })
+                        addView(PhoneLibrarySection(context))
+                        addView(PcSectionsView(this@MainActivity))
+                        addView(TextView(context).apply {
+                            setText(R.string.settings_open)
+                            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                            setPadding(0, dp(24), 0, 0)
+                            setOnClickListener { startActivity(Intent(context, SettingsActivity::class.java)) }
+                        })
+                        addView(TextView(context).apply {
+                            text = getString(R.string.main_version, BuildConfig.VERSION_NAME)
+                            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                            setPadding(0, dp(24), 0, 0)
+                        })
+                        addView(updateLink)
+                    },
+                )
             },
         )
         requestMissingPermissions()

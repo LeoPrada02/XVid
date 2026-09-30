@@ -20,4 +20,21 @@
     <string name="update_tap">Tap to open the download page</string>
     <string name="main_version">Version %1$s</string>
     <string name="main_update">XVid %1$s is available. Tap here to get it.</string>
+    <string name="pcs_title">PCs</string>
+    <string name="pcs_none">No PCs yet. On a PC, open XVid, tap Add a phone, then tap Pair with a PC here.</string>
+    <string name="pcs_pair">Pair with a PC</string>
+    <string name="pcs_home">%1$s · home PC</string>
+    <string name="pcs_checking">Checking…</string>
+    <string name="pcs_reachable">Reachable</string>
+    <string name="pcs_not_reachable">Not reachable. PCs are only reachable on the home Wi-Fi, while XVid runs there.</string>
+    <string name="pcs_pair_again">Doesn\'t accept this phone anymore. Pair with a PC again.</string>
+    <string name="pcs_pairing">Pairing…</string>
+    <plurals name="pcs_paired">
+        <item quantity="one">Paired. XVid can use %1$d PC.</item>
+        <item quantity="other">Paired. XVid can use %1$d PCs.</item>
+    </plurals>
+    <string name="pcs_not_a_code">That isn\'t an XVid pairing code. On the PC, tap Add a phone and scan the code in step 2.</string>
+    <string name="pcs_pair_not_reachable">Couldn\'t reach the PC. Connect the phone to the same Wi-Fi as the PC, check XVid is running there, and try again.</string>
+    <string name="pcs_fingerprint_mismatch">The PC\'s certificate doesn\'t match the QR code, so XVid didn\'t connect. Scan the code again on your own PC.</string>
+    <string name="pcs_scanner_failed">Couldn\'t open the QR code scanner. %1$s</string>
 </resources>

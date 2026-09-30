@@ -26,6 +26,10 @@ PC_URL = f"https://{PC_IP}:{HTTPS_PORT}"  # this PC, as phones and other PCs rea
 LOCAL = ("127.0.0.1", 50000)  # a browser on the PC itself
 PHONE = ("192.0.2.20", 50000)  # a phone on the home Wi-Fi
 OTHER_PC = ("192.0.2.30", 50000)
+# The certificate authority's public certificate, as setup.cmd copies it into the data folder.
+# Only its encoding matters to the API (it hashes the DER bytes); nothing is really signed.
+CA_DER = b"fake certificate authority"
+CA_PEM = "-----BEGIN CERTIFICATE-----\nZmFrZSBjZXJ0aWZpY2F0ZSBhdXRob3JpdHk=\n-----END CERTIFICATE-----\n"
 
 # Older versions kept these in the repo folder; the app moves them into its data folder on start.
 # Refuse to run rather than let a test move a real token or certificates into a temp folder.
@@ -141,7 +145,7 @@ def enable_phone_access(pc) -> None:
     (certs / "xvid.pem").write_text(
         "-----BEGIN CERTIFICATE-----\nZmFrZSBjZXJ0aWZpY2F0ZQ==\n-----END CERTIFICATE-----\n")
     (certs / "xvid-key.pem").write_text("fake key")
-    (certs / "xvid-ca.crt").write_text("fake ca")
+    (certs / "xvid-ca.crt").write_text(CA_PEM)
     (certs / "ip.txt").write_text(PC_IP)
     (pc.caroot / "rootCA.pem").write_text("fake root ca cert")
     (pc.caroot / "rootCA-key.pem").write_text("fake root ca key")
