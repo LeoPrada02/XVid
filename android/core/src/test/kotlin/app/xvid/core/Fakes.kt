@@ -1,0 +1,40 @@
+package app.xvid.core
+
+import java.io.File
+
+/**
+ * Stands in for yt-dlp. Each call writes [videosPerPost] files into the output
+ * folder (or throws [failWith]) and remembers the request it got.
+ */
+class FakeEngine(
+    var videosPerPost: Int = 1,
+    var failWith: String? = null,
+    var progressSteps: List<Float> = listOf(0f, 50f, 100f),
+) : DownloadEngine {
+    val requests = mutableListOf<EngineRequest>()
+
+    override fun download(request: EngineRequest, onProgress: (Float) -> Unit): List<File> {
+        requests += request
+        progressSteps.forEach(onProgress)
+        failWith?.let { throw EngineError(it) }
+        request.outputDir.mkdirs()
+        return (1..videosPerPost).map { n ->
+            File(request.outputDir, "video$n.mp4").apply { writeText("video $n of ${request.url}") }
+        }
+    }
+}
+
+/** The phone library folder, kept in memory: name -> file contents. */
+class FakePhoneLibrary(var failWith: String? = null) : PhoneLibrary {
+    val videos = linkedMapOf<String, String>()
+
+    override fun add(file: File, name: String): PhoneVideo {
+        failWith?.let { throw IllegalStateException(it) }
+        videos[name] = file.readText()
+        return PhoneVideo(id = "video:$name", name = name)
+    }
+}
+
+class FakeNetwork(var online: Boolean = true) : NetworkState {
+    override fun isOnline() = online
+}
