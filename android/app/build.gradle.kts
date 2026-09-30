@@ -5,6 +5,14 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// Release builds come from .github/workflows/release.yml, which sets these from the
+// version tag, the repo and the GitHub secrets. Local builds are "-dev" builds that
+// don't check for updates.
+fun env(name: String): String? = providers.environmentVariable(name).orNull?.takeIf { it.isNotBlank() }
+
+val appVersion = env("XVID_VERSION") ?: "0.1.0-dev"
+val (major, minor, patch) = Regex("""(\d+)\.(\d+)\.(\d+)""").find(appVersion)!!.destructured
+
 android {
     namespace = "app.xvid"
     compileSdk = 35
@@ -13,13 +21,42 @@ android {
         applicationId = "app.xvid"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = major.toInt() * 10_000 + minor.toInt() * 100 + patch.toInt()
+        versionName = appVersion
+        // "owner/name" of the GitHub repo whose Releases the app checks for updates. It comes
+        // from the build (GitHub Actions sets GITHUB_REPOSITORY), never from the code.
+        buildConfigField("String", "RELEASES_REPO", "\"${env("GITHUB_REPOSITORY").orEmpty()}\"")
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    // One APK per CPU type instead of one with all of them: Python and ffmpeg are big.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = false
+        }
+    }
+
+    signingConfigs {
+        env("XVID_KEYSTORE_FILE")?.let { keystore ->
+            create("release") {
+                storeFile = file(keystore)
+                storePassword = env("XVID_KEYSTORE_PASSWORD")
+                keyAlias = env("XVID_KEY_ALIAS")
+                keyPassword = env("XVID_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 

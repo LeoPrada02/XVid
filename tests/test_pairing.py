@@ -1,5 +1,6 @@
 """Pairing a phone: the PC makes a one-time code (shown as a QR code), and the phone redeems it to log in."""
 
+import json
 from urllib.parse import parse_qs, urlparse
 
 from conftest import LOCAL, PC_IP, PC_URL, bearer, login
@@ -77,3 +78,37 @@ def test_only_the_pc_itself_can_create_codes(phone_ready):
 
 def test_no_codes_before_phone_access_is_set_up(pc):
     assert pc.client(LOCAL).post("/api/pair").status_code == 409
+
+
+# Step 1 of Add a phone: install the app from the latest GitHub Release.
+
+LATEST_APK = "https://github.com/example/xvid/releases/latest/download/XVid-arm64-v8a.apk"
+
+
+def pairing(pc) -> dict:
+    res = pc.client(LOCAL).post("/api/pair")
+    assert res.status_code == 200, res.text
+    return res.json()
+
+
+def test_add_a_phone_links_to_the_latest_release(phone_ready, monkeypatch):
+    monkeypatch.setenv("XVID_RELEASES_REPO", "example/xvid")
+    install = pairing(phone_ready)["install"]
+    assert install["url"] == LATEST_APK
+    assert install["page"] == "https://github.com/example/xvid/releases/latest"
+    assert install["svg"].startswith("<")
+
+
+def test_the_release_repo_can_be_set_in_xvid_json(phone_ready, monkeypatch):
+    monkeypatch.delenv("XVID_RELEASES_REPO")
+    (phone_ready.data / "xvid.json").write_text(json.dumps({"releases_repo": "example/xvid"}))
+    assert pairing(phone_ready)["install"]["url"] == LATEST_APK
+
+
+def test_no_install_step_when_the_release_repo_is_unknown(phone_ready):
+    assert pairing(phone_ready)["install"] is None
+
+
+def test_a_malformed_release_repo_is_ignored(phone_ready, monkeypatch):
+    monkeypatch.setenv("XVID_RELEASES_REPO", "not a repo/../x")
+    assert pairing(phone_ready)["install"] is None

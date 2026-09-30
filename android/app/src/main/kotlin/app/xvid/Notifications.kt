@@ -8,11 +8,13 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import app.xvid.core.PhoneDownloadOutcome
+import app.xvid.core.Update
 
 /** The notifications a phone download shows: progress, then Saved or failed. */
 object Notifications {
     private const val CHANNEL_PROGRESS = "downloads"
     private const val CHANNEL_RESULTS = "results"
+    private const val CHANNEL_UPDATES = "updates"
 
     fun createChannels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -21,6 +23,9 @@ object Notifications {
         )
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL_RESULTS, context.getString(R.string.channel_results), NotificationManager.IMPORTANCE_DEFAULT),
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(CHANNEL_UPDATES, context.getString(R.string.channel_updates), NotificationManager.IMPORTANCE_LOW),
         )
     }
 
@@ -58,6 +63,23 @@ object Notifications {
         }
         return builder.build()
     }
+
+    /** A newer version is on GitHub Releases; tapping opens the release page. */
+    fun update(context: Context, update: Update): Notification =
+        Notification.Builder(context, CHANNEL_UPDATES)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(context.getString(R.string.update_available, update.version))
+            .setContentText(context.getString(R.string.update_tap))
+            .setContentIntent(
+                PendingIntent.getActivity(
+                    context,
+                    0,
+                    Intent(Intent.ACTION_VIEW, Uri.parse(update.url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                ),
+            )
+            .setAutoCancel(true)
+            .build()
 
     private fun playIntent(context: Context, video: Uri): PendingIntent {
         val view = Intent(Intent.ACTION_VIEW)

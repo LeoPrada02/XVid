@@ -63,6 +63,9 @@ class DownloadService : Service() {
             }
         }
         notifications.notify(nextResultId.getAndIncrement(), Notifications.result(this, outcome))
+        (application as XVidApp).updateCheck?.releaseToNotify()?.let {
+            notifications.notify(UPDATE_ID, Notifications.update(this, it))
+        }
         mainThread.post { if (--pending == 0) stopWhenIdle() }
     }
 
@@ -97,6 +100,7 @@ class DownloadService : Service() {
     companion object {
         private const val EXTRA_TEXT = "text"
         private const val PROGRESS_ID = 1
+        private const val UPDATE_ID = 2
         private const val PROGRESS_INTERVAL_MS = 500L
         private val nextResultId = AtomicInteger(1000)
 

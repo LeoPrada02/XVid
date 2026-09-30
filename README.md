@@ -98,6 +98,7 @@ User environment variables, read when XVid starts:
 | `XVID_DATA` | `%LOCALAPPDATA%\XVid` | This PC's token, certificates, name and list of PCs |
 | `XVID_HTTPS_PORT` / `XVID_HTTP_PORT` | `8443` / `8000` | Ports, if those are taken |
 | `XVID_PHONE_VIEW` | off | `1` shows the phone's view in the PC's browser (for development) |
+| `XVID_RELEASES_REPO` | the GitHub repo this folder was cloned from | `owner/name` of the GitHub repo whose Releases hold the phone app, for **Add a phone**. A ZIP download has no git remote: set this, or `"releases_repo"` in `xvid.json` |
 
 ## How it works
 
@@ -158,4 +159,49 @@ the app over HTTP.
 ```
 python -m pip install -r requirements-dev.txt
 python -m pytest
+```
+
+## The Android phone app
+
+The native phone app is in `android/`: a plain Kotlin `core` module with all the behaviour
+(tested on the JVM with fakes) and a thin Android `app` module around it. Building needs JDK 17
+and the Android SDK (`ANDROID_HOME`, or `sdk.dir` in `android/local.properties`):
+
+```
+cd android
+gradlew :core:test        # the core module's tests
+gradlew assembleDebug     # one APK per CPU type in app/build/outputs/apk/debug
+```
+
+Most phones need the `arm64-v8a` APK. If the project is in a synced folder such as OneDrive and
+the build fails with "Cannot snapshot … not a regular file", set `XVID_BUILD_DIR` to a folder
+outside it and the build outputs go there instead.
+
+Local builds are `-dev` versions and don't check for updates.
+
+### Releasing the phone app
+
+Pushing a version tag runs `.github/workflows/release.yml`: it runs the core module's tests,
+builds the signed release (one APK per CPU type) and publishes it as a GitHub Release. The app
+checks GitHub Releases and shows a link when there's a newer version (it never downloads or
+installs by itself), and the PC's **Add a phone** shows a QR code to the latest release.
+
+The signing key never goes in the repo (it's public). Set it up once:
+
+1. Make a key and keep the file and passwords somewhere safe. Every release must be signed
+   with the same key, or phones can't update:
+   ```
+   keytool -genkeypair -keystore xvid-release.jks -alias xvid -keyalg RSA -keysize 4096 -validity 10000
+   ```
+2. In the GitHub repo, **Settings → Secrets and variables → Actions**, add:
+   - `XVID_KEYSTORE_BASE64`: the key file in base64. In PowerShell:
+     `[Convert]::ToBase64String([IO.File]::ReadAllBytes("xvid-release.jks")) | Set-Clipboard`
+   - `XVID_KEYSTORE_PASSWORD` and `XVID_KEY_PASSWORD`: the passwords you chose
+   - `XVID_KEY_ALIAS`: `xvid`
+
+Then release with a tag:
+
+```
+git tag v1.0.0
+git push origin v1.0.0
 ```

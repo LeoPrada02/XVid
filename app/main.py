@@ -538,8 +538,26 @@ def create_pairing(request: Request) -> dict:
     # The phone always installs the app from the home PC, and logs in on this PC.
     fragment = urlencode({"pair": code, "home": home_url(), "pc": config.self_url()})
     url = f"http://{cert_ip()}:{HTTP_PORT}/setup#{fragment}"
-    qr = qrcode.make(url, image_factory=qrcode.image.svg.SvgPathImage, border=2)
-    return {"url": url, "svg": qr.to_string(encoding="unicode"), "expires_in": PAIR_TTL}
+    return {"url": url, "svg": qr_svg(url), "expires_in": PAIR_TTL, "install": install_step()}
+
+
+# The release workflow (.github/workflows/release.yml) attaches one APK per CPU type; this one fits most phones.
+PHONE_APK = "XVid-arm64-v8a.apk"
+
+
+def install_step() -> dict | None:
+    """Step 1 of Add a phone: where to get the phone app (the latest GitHub Release)."""
+    repo = config.releases_repo()
+    if repo is None:
+        return None
+    page = f"https://github.com/{repo}/releases/latest"
+    url = f"{page}/download/{PHONE_APK}"
+    return {"url": url, "page": page, "svg": qr_svg(url)}
+
+
+def qr_svg(text: str) -> str:
+    qr = qrcode.make(text, image_factory=qrcode.image.svg.SvgPathImage, border=2)
+    return qr.to_string(encoding="unicode")
 
 
 class PairIn(BaseModel):

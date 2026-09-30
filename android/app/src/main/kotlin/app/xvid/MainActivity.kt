@@ -1,6 +1,8 @@
 package app.xvid
 
 import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.TypedValue
 import android.widget.LinearLayout
@@ -27,9 +29,38 @@ class MainActivity : Activity() {
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
                     setPadding(0, dp(16), 0, 0)
                 })
+                addView(TextView(context).apply {
+                    text = getString(R.string.main_version, BuildConfig.VERSION_NAME)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                    setPadding(0, dp(24), 0, 0)
+                })
+                addView(updateLink)
             },
         )
         requestMissingPermissions()
+        showNewerRelease()
+    }
+
+    private val updateLink by lazy {
+        TextView(this).apply {
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            setPadding(0, dp(8), 0, 0)
+            visibility = TextView.GONE
+        }
+    }
+
+    /** Checks GitHub Releases in the background and, if there's a newer version, links to it. */
+    private fun showNewerRelease() {
+        val check = (application as XVidApp).updateCheck ?: return
+        Thread {
+            val update = check.newerRelease() ?: return@Thread
+            runOnUiThread {
+                if (isDestroyed) return@runOnUiThread
+                updateLink.text = getString(R.string.main_update, update.version)
+                updateLink.setOnClickListener { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.url))) }
+                updateLink.visibility = TextView.VISIBLE
+            }
+        }.start()
     }
 
     private fun requestMissingPermissions() {

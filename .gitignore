@@ -6,3 +6,7 @@ certs/
 boceto.md
 xvid.json
 .pytest_cache/
+
+# Phone app signing keys (they belong in GitHub secrets only)
+*.jks
+*.keystore

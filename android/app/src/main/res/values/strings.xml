@@ -15,4 +15,9 @@
         <item quantity="other">%1$d videos · tap to play the first</item>
     </plurals>
     <string name="notif_failed">Download failed</string>
+    <string name="channel_updates">App updates</string>
+    <string name="update_available">XVid %1$s is available</string>
+    <string name="update_tap">Tap to open the download page</string>
+    <string name="main_version">Version %1$s</string>
+    <string name="main_update">XVid %1$s is available. Tap here to get it.</string>
 </resources>

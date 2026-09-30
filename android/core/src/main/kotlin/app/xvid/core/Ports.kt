@@ -35,3 +35,23 @@ data class PhoneVideo(val id: String, val name: String)
 interface NetworkState {
     fun isOnline(): Boolean
 }
+
+/** Small persistent key-value storage private to the phone app. */
+interface Storage {
+    fun get(key: String): String?
+    fun put(key: String, value: String?)
+}
+
+/** Wall-clock time, in milliseconds since the epoch. */
+interface Clock {
+    fun now(): Long
+}
+
+/** The phone app's GitHub Releases. */
+interface ReleaseFeed {
+    /** The latest published release, or null if there is none. Throws when it can't be checked. */
+    fun latest(): Release?
+}
+
+/** A published release: its version tag (e.g. v1.2.0) and the page to get it from. */
+data class Release(val tag: String, val url: String)

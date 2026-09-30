@@ -41,3 +41,32 @@ class FakePhoneLibrary(var failWith: String? = null) : PhoneLibrary {
 class FakeNetwork(var online: Boolean = true) : NetworkState {
     override fun isOnline() = online
 }
+
+/** GitHub Releases, as a fixed answer (or a failure). */
+class FakeReleaseFeed(var latest: Release? = null, var failWith: String? = null) : ReleaseFeed {
+    var calls = 0
+
+    override fun latest(): Release? {
+        calls++
+        failWith?.let { throw java.io.IOException(it) }
+        return latest
+    }
+}
+
+class FakeStorage : Storage {
+    val values = mutableMapOf<String, String>()
+
+    override fun get(key: String): String? = values[key]
+
+    override fun put(key: String, value: String?) {
+        if (value == null) values.remove(key) else values[key] = value
+    }
+}
+
+class FakeClock(var millis: Long = 1_000_000_000_000) : Clock {
+    override fun now() = millis
+
+    fun advanceHours(hours: Long) {
+        millis += hours * 60 * 60 * 1000
+    }
+}

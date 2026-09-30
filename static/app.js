@@ -632,8 +632,13 @@ async function openPairing() {
     $("#pair-status").textContent = err.message;
     return;
   }
-  // The SVG comes from our own server (the qrcode library), not from user input.
+  // The SVGs come from our own server (the qrcode library), not from user input.
   $("#pair-qr").innerHTML = pairing.svg;
+  $("#install-step").hidden = !pairing.install;
+  if (pairing.install) {
+    $("#install-qr").innerHTML = pairing.install.svg;
+    $("#install-page").href = pairing.install.page;
+  }
   $("#pair-url").textContent = pairing.url;
   pairTimer = startCountdown(pairing.expires_in,
     (left) => ($("#pair-status").textContent = `One-time code, expires in ${fmtCountdown(left)}.`),

@@ -1,0 +1,69 @@
+# Pushing a version tag (e.g. v1.2.0) tests the core module, builds the signed phone app
+# (one APK per CPU type) and publishes it as a GitHub Release. The signing key lives only in
+# GitHub secrets; see "Releasing the phone app" in the README.
+name: Release phone app
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write # create the release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Unpack the signing key
+        env:
+          XVID_KEYSTORE_BASE64: ${{ secrets.XVID_KEYSTORE_BASE64 }}
+          XVID_KEYSTORE_PASSWORD: ${{ secrets.XVID_KEYSTORE_PASSWORD }}
+          XVID_KEY_ALIAS: ${{ secrets.XVID_KEY_ALIAS }}
+          XVID_KEY_PASSWORD: ${{ secrets.XVID_KEY_PASSWORD }}
+        run: |
+          for name in XVID_KEYSTORE_BASE64 XVID_KEYSTORE_PASSWORD XVID_KEY_ALIAS XVID_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::The $name secret is missing. See \"Releasing the phone app\" in the README."
+              exit 1
+            fi
+          done
+          echo "$XVID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+
+      - name: Test the core module and build the release
+        working-directory: android
+        env:
+          XVID_KEYSTORE_FILE: ${{ runner.temp }}/release.jks
+          XVID_KEYSTORE_PASSWORD: ${{ secrets.XVID_KEYSTORE_PASSWORD }}
+          XVID_KEY_ALIAS: ${{ secrets.XVID_KEY_ALIAS }}
+          XVID_KEY_PASSWORD: ${{ secrets.XVID_KEY_PASSWORD }}
+        # GITHUB_REPOSITORY (set by Actions) tells the app where to check for updates.
+        run: XVID_VERSION="${GITHUB_REF_NAME#v}" ./gradlew :core:test assembleRelease
+
+      - name: Check the signatures and name the APKs
+        run: |
+          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          mkdir dist
+          # The PC's Add a phone page links to XVid-arm64-v8a.apk, so keep these names.
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            apk="android/app/build/outputs/apk/release/app-$abi-release.apk"
+            "$apksigner" verify "$apk"
+            cp "$apk" "dist/XVid-$abi.apk"
+          done
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/*.apk \
+            --title "XVid $GITHUB_REF_NAME" \
+            --notes "Most phones: **XVid-arm64-v8a.apk**. Older 32-bit phones: XVid-armeabi-v7a.apk. XVid-x86_64.apk is for emulators." \
+            --generate-notes
