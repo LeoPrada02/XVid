@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_title">Settings</string>
+    <string name="settings_open">Settings</string>
+    <string name="settings_quality">Maximum quality</string>
+    <string name="settings_quality_help">Applies to every phone download, on Wi-Fi and on mobile data. Lower saves space and data. If a post has nothing that small, XVid saves its smallest version.</string>
+    <string name="quality_best">Best</string>
+    <string name="quality_720p">720p</string>
+    <string name="quality_480p">480p</string>
+</resources>

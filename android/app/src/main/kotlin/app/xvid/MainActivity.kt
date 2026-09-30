@@ -35,6 +35,12 @@ class MainActivity : Activity() {
                     setPadding(0, dp(24), 0, 0)
                 })
                 addView(updateLink)
+                addView(TextView(context).apply {
+                    setText(R.string.settings_open)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                    setPadding(0, dp(24), 0, 0)
+                    setOnClickListener { startActivity(Intent(context, SettingsActivity::class.java)) }
+                })
             },
         )
         requestMissingPermissions()

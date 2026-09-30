@@ -14,6 +14,8 @@ class PhoneDownloads(
     private val network: NetworkState,
     /** Scratch folder for the engine's files before they reach the phone library. */
     private val workDir: File,
+    /** Read at the start of each phone download, so a new choice applies to the next one. */
+    private val maximumQuality: () -> MaximumQuality = { MaximumQuality.BEST },
 ) {
     /**
      * Downloads the post linked in [sharedText]. [onProgress] gets a
@@ -27,7 +29,7 @@ class PhoneDownloads(
         val jobDir = File(workDir, "download-${link.statusId}-${System.nanoTime()}")
         try {
             val files = try {
-                engine.download(EngineRequest(link.url, BEST_QUALITY, jobDir)) { percent ->
+                engine.download(EngineRequest(link.url, maximumQuality().format, jobDir)) { percent ->
                     onProgress(if (percent < 0f) null else percent.toInt().coerceIn(0, 100))
                 }
             } catch (e: EngineError) {
@@ -52,9 +54,6 @@ class PhoneDownloads(
     }
 
     private companion object {
-        /** Best video merged with best audio, or the best single file that has both. */
-        const val BEST_QUALITY = "bv*+ba/b"
-
         fun describe(e: Exception) = e.message ?: e.javaClass.simpleName
 
         private val extractorPrefix = Regex("""^\[[^\]]+]\s*(?:[^:\s]+:\s*)?""")
