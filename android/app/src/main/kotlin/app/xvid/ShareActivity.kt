@@ -7,8 +7,8 @@ import android.widget.Toast
 
 /**
  * Share → XVid. Hands the shared text to [DownloadService] and closes at once,
- * so the user is straight back in X while the phone download runs. The first
- * time, it opens XVid instead if a permission the download needs is missing.
+ * so the user is straight back in X while the phone download runs. If XVid never
+ * asked for the permissions the download needs, it opens XVid to ask, once.
  */
 class ShareActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -19,7 +19,7 @@ class ShareActivity : Activity() {
             Toast.makeText(applicationContext, R.string.toast_downloading, Toast.LENGTH_SHORT).show()
             // Without notifications (or storage on Android 8 and 9) the download can't be
             // seen or saved, and this invisible activity can't ask: open XVid to ask.
-            if (Permissions.missing(this).isNotEmpty()) {
+            if (!Permissions.asked(this) && Permissions.missing(this).isNotEmpty()) {
                 startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
         }

@@ -1,10 +1,13 @@
 package app.xvid
 
 import android.app.Application
+import android.os.Handler
+import android.os.Looper
 import app.xvid.core.KnownPcs
 import app.xvid.core.MaximumQualitySetting
 import app.xvid.core.PhoneDownloads
 import app.xvid.core.PhoneLibraryBrowser
+import app.xvid.core.RecentDownloads
 import app.xvid.core.RetryingPhoneDownloads
 import app.xvid.core.UpdateCheck
 import app.xvid.core.XLogin
@@ -37,7 +40,14 @@ class XVidApp : Application() {
 
     /** Phone downloads with retries and yt-dlp updates: what the share sheet and background work use. */
     val retryingDownloads: RetryingPhoneDownloads by lazy {
-        RetryingPhoneDownloads(phoneDownloads, network, ytDlpUpdates, storage, loggedIn = xLogin::isLoggedIn)
+        RetryingPhoneDownloads(
+            phoneDownloads,
+            network,
+            ytDlpUpdates,
+            storage,
+            loggedIn = xLogin::isLoggedIn,
+            recent = recentDownloads,
+        )
     }
 
     val phoneLibrary: PhoneLibraryBrowser by lazy {
@@ -50,6 +60,12 @@ class XVidApp : Application() {
 
     /** Pairing and the PCs the phone knows (see PcSectionsView). */
     val knownPcs: KnownPcs by lazy { KnownPcs(storage) }
+
+    /** The pairing going on or last done, for whichever main screen is showing (see PcSectionsView). */
+    val pairing = PairingStatus()
+
+    /** The latest phone downloads and how each ended, shown on the main screen (see RecentDownloadsSection). */
+    val recentDownloads: RecentDownloads by lazy { RecentDownloads(storage, WallClock) }
 
     /** Null in local builds, which don't know which GitHub repo they come from. */
     val updateCheck: UpdateCheck? by lazy {
@@ -64,5 +80,24 @@ class XVidApp : Application() {
         BackgroundWork.scheduleWeeklyYtDlpCheck(this)
         // In case the app was stopped before a waiting download's retry was scheduled.
         if (retryingDownloads.hasWaiting()) BackgroundWork.retryWhenOnline(this)
+    }
+}
+
+/** A pairing's progress and result. [listener] runs on the main thread after each change. */
+class PairingStatus {
+    @Volatile
+    var inProgress = false
+        private set
+
+    @Volatile
+    var message: String? = null
+        private set
+
+    var listener: (() -> Unit)? = null
+
+    fun update(inProgress: Boolean, message: String) {
+        this.inProgress = inProgress
+        this.message = message
+        Handler(Looper.getMainLooper()).post { listener?.invoke() }
     }
 }

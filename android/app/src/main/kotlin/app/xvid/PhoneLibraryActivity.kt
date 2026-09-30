@@ -189,7 +189,7 @@ class PhoneLibraryActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             addView(SquareImageView(context).apply {
                 scaleType = ImageView.ScaleType.CENTER_CROP
-                setBackgroundColor(Color.LTGRAY)
+                setBackgroundColor(Color.DKGRAY)
             })
             addView(TextView(context).apply {
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)

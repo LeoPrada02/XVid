@@ -21,11 +21,15 @@ class RetryingPhoneDownloads(
     private val storage: Storage,
     /** Whether the phone has an X login (see [XLogin.isLoggedIn]). */
     private val loggedIn: () -> Boolean = { false },
+    /** Where each download's progress and result is kept for the main screen. */
+    private val recent: RecentDownloads? = null,
 ) {
     /** Downloads the post linked in [sharedText]. A failure's reason says whether it will be retried. */
     fun download(sharedText: String, onProgress: (Int?) -> Unit = {}): PhoneDownloadOutcome {
+        XPostLink.find(sharedText)?.let { recent?.started(it.url) }
         val result = attempt(sharedText, onProgress)
         val url = XPostLink.find(sharedText)?.url ?: return result.outcome
+        recent?.ended(url, result.outcome)
         when (result.waitFor) {
             WaitFor.CONNECTION -> synchronized(this) { save(load().filterNot { it.url == url } + Waiting(url, retries = 0)) }
             WaitFor.LOGIN -> waitForLogin(url)
@@ -70,23 +74,26 @@ class RetryingPhoneDownloads(
         for (waiting in synchronized(this) { load() }) {
             if (waiting.retries >= MAX_CONNECTION_RETRIES) {
                 replace(waiting, null)
-                onResult(PhoneDownloadOutcome.Failed(NO_CONNECTION))
+                PhoneDownloadOutcome.Failed(NO_CONNECTION).let { recent?.ended(waiting.url, it); onResult(it) }
                 continue
             }
             // Counted before trying, so a retry Android stops half way (the app killed, the
             // background time used up) still counts, and a post that never finishes gives up.
             replace(waiting, waiting.copy(retries = waiting.retries + 1))
+            recent?.started(waiting.url)
             val result = attempt(waiting.url, onProgress)
             // Only tries that failed while the phone said it was online count towards giving up.
             val retries = if (result.online) waiting.retries + 1 else waiting.retries
             val retryAgain = result.waitFor == WaitFor.CONNECTION && retries < MAX_CONNECTION_RETRIES
             replace(waiting, if (retryAgain) waiting.copy(retries = retries) else null)
             if (result.waitFor == WaitFor.LOGIN) waitForLogin(waiting.url)
-            when {
-                retryAgain -> Unit
-                result.waitFor == WaitFor.CONNECTION -> onResult(PhoneDownloadOutcome.Failed(NO_CONNECTION))
-                else -> onResult(result.outcome)
+            val outcome = when {
+                retryAgain -> result.outcome // still waiting: shown in the app, not notified
+                result.waitFor == WaitFor.CONNECTION -> PhoneDownloadOutcome.Failed(NO_CONNECTION)
+                else -> result.outcome
             }
+            recent?.ended(waiting.url, outcome)
+            if (!retryAgain) onResult(outcome)
         }
         return hasWaiting()
     }

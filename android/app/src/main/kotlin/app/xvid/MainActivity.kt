@@ -33,6 +33,7 @@ class MainActivity : Activity() {
                             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
                             setPadding(0, dp(16), 0, 0)
                         })
+                        addView(RecentDownloadsSection(context))
                         addView(PhoneLibrarySection(context))
                         addView(PcSectionsView(this@MainActivity))
                         addView(TextView(context).apply {
@@ -79,6 +80,9 @@ class MainActivity : Activity() {
 
     private fun requestMissingPermissions() {
         val wanted = Permissions.missing(this)
-        if (wanted.isNotEmpty()) requestPermissions(wanted.toTypedArray(), 1)
+        if (wanted.isNotEmpty()) {
+            requestPermissions(wanted.toTypedArray(), 1)
+            Permissions.markAsked(this)
+        }
     }
 }

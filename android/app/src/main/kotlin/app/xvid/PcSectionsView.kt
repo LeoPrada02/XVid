@@ -24,7 +24,8 @@ import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
  */
 class PcSectionsView(context: Context) : LinearLayout(context) {
     private val activity = context as Activity
-    private val pcs: KnownPcs = (activity.application as XVidApp).knownPcs
+    private val app = activity.application as XVidApp
+    private val pcs: KnownPcs = app.knownPcs
     private val sections = LinearLayout(activity).apply { orientation = VERTICAL }
     private val message = text(15f).apply { visibility = GONE }
     private val pairButton = Button(activity).apply {
@@ -45,7 +46,32 @@ class PcSectionsView(context: Context) : LinearLayout(context) {
     /** Checks again whenever the screen comes back, e.g. after joining the home Wi-Fi. */
     override fun onWindowVisibilityChanged(visibility: Int) {
         super.onWindowVisibilityChanged(visibility)
-        if (visibility == View.VISIBLE) refresh()
+        if (visibility == View.VISIBLE) {
+            showPairing()
+            refresh()
+        }
+    }
+
+    // Android may recreate the main screen while the QR code scanner is open, so the pairing's
+    // progress and result are kept in the app and shown by whichever screen is there now.
+    private val onPairingChanged = {
+        showPairing()
+        if (!app.pairing.inProgress) refresh()
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        app.pairing.listener = onPairingChanged
+    }
+
+    override fun onDetachedFromWindow() {
+        if (app.pairing.listener === onPairingChanged) app.pairing.listener = null
+        super.onDetachedFromWindow()
+    }
+
+    private fun showPairing() {
+        pairButton.isEnabled = !app.pairing.inProgress
+        app.pairing.message?.let(::say)
     }
 
     private fun refresh() = inBackground({ pcs.refresh() }) { show(it, checking = false) }
@@ -54,23 +80,24 @@ class PcSectionsView(context: Context) : LinearLayout(context) {
         val options = GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
         GmsBarcodeScanning.getClient(activity, options).startScan()
             .addOnSuccessListener { barcode -> pair(barcode.rawValue.orEmpty()) }
-            .addOnFailureListener { say(activity.getString(R.string.pcs_scanner_failed, it.localizedMessage.orEmpty())) }
+            .addOnFailureListener {
+                app.pairing.update(inProgress = false, message = app.getString(R.string.pcs_scanner_failed, it.localizedMessage.orEmpty()))
+            }
     }
 
     private fun pair(qr: String) {
-        pairButton.isEnabled = false
-        say(activity.getString(R.string.pcs_pairing))
-        inBackground({ pcs.pair(qr) }) { result ->
-            pairButton.isEnabled = true
-            say(when (result) {
-                is PairingResult.Paired -> activity.resources.getQuantityString(R.plurals.pcs_paired, result.pcs.size, result.pcs.size)
-                PairingResult.NotAPairingCode -> activity.getString(R.string.pcs_not_a_code)
-                PairingResult.NotReachable -> activity.getString(R.string.pcs_pair_not_reachable)
-                PairingResult.FingerprintMismatch -> activity.getString(R.string.pcs_fingerprint_mismatch)
+        val res = app.resources
+        app.pairing.update(inProgress = true, message = res.getString(R.string.pcs_pairing))
+        Thread {
+            val result = pcs.pair(qr)
+            app.pairing.update(inProgress = false, message = when (result) {
+                is PairingResult.Paired -> res.getQuantityString(R.plurals.pcs_paired, result.pcs.size, result.pcs.size)
+                PairingResult.NotAPairingCode -> res.getString(R.string.pcs_not_a_code)
+                PairingResult.NotReachable -> res.getString(R.string.pcs_pair_not_reachable)
+                PairingResult.FingerprintMismatch -> res.getString(R.string.pcs_fingerprint_mismatch)
                 is PairingResult.CodeRefused -> result.reason
             })
-            if (result is PairingResult.Paired) refresh()
-        }
+        }.start()
     }
 
     private fun show(statuses: List<PcStatus>, checking: Boolean) {
