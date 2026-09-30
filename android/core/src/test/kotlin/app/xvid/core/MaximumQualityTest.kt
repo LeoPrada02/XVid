@@ -34,12 +34,12 @@ class MaximumQualityTest {
 
     @Test
     fun `720p asks for the best version no taller than 720, falling back to the smallest`() {
-        assertEquals("bv*[height<=720]+ba/b[height<=720]/wv*+ba/w", formatRequestedWith(MaximumQuality.P720))
+        assertEquals("bv*[height<=?720]+ba/b[height<=?720]/wv*+ba/w", formatRequestedWith(MaximumQuality.P720))
     }
 
     @Test
     fun `480p asks for the best version no taller than 480, falling back to the smallest`() {
-        assertEquals("bv*[height<=480]+ba/b[height<=480]/wv*+ba/w", formatRequestedWith(MaximumQuality.P480))
+        assertEquals("bv*[height<=?480]+ba/b[height<=?480]/wv*+ba/w", formatRequestedWith(MaximumQuality.P480))
     }
 
     @Test

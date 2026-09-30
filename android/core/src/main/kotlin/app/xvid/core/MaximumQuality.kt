@@ -18,9 +18,9 @@ enum class MaximumQuality(
 /**
  * The best version no taller than [height], with audio (merged, or a single
  * file that has both). If the post has nothing that small, the smallest
- * version available.
+ * version available. `<=?` also keeps versions whose height X doesn't report.
  */
-private fun capped(height: Int) = "bv*[height<=$height]+ba/b[height<=$height]/wv*+ba/w"
+private fun capped(height: Int) = "bv*[height<=?$height]+ba/b[height<=?$height]/wv*+ba/w"
 
 /** The chosen Maximum quality, kept in [storage] so it survives restarts. Default Best. */
 class MaximumQualitySetting(private val storage: Storage) {

@@ -3,7 +3,8 @@ package app.xvid.core
 /**
  * Phone downloads that cope with the ways they fail (see [FailureKind]):
  * - no connection: fails now, and the post waits to be retried by [retryWaiting]
- *   when the connection is back (up to [MAX_CONNECTION_RETRIES] times);
+ *   when the connection is back (up to [MAX_CONNECTION_RETRIES] times, counting
+ *   retries the app was stopped in the middle of);
  * - something a newer yt-dlp might fix: updates yt-dlp and retries once;
  * - needs login or permanent: fails with the reason, never retried.
  *
@@ -42,14 +43,19 @@ class RetryingPhoneDownloads(
     ): Boolean {
         if (!network.isOnline()) return hasWaiting()
         for (waiting in synchronized(this) { load() }) {
+            if (waiting.retries >= MAX_CONNECTION_RETRIES) {
+                replace(waiting, null)
+                onResult(PhoneDownloadOutcome.Failed(NO_CONNECTION))
+                continue
+            }
+            // Counted before trying, so a retry Android stops half way (the app killed, the
+            // background time used up) still counts, and a post that never finishes gives up.
+            replace(waiting, waiting.copy(retries = waiting.retries + 1))
             val result = attempt(waiting.url, onProgress)
             // Only tries that failed while the phone said it was online count towards giving up.
-            val retries = if (network.isOnline()) waiting.retries + 1 else waiting.retries
+            val retries = if (result.online) waiting.retries + 1 else waiting.retries
             val retryAgain = result.waitForConnection && retries < MAX_CONNECTION_RETRIES
-            synchronized(this) {
-                val others = load().filterNot { it.url == waiting.url }
-                save(if (retryAgain) others + waiting.copy(retries = retries) else others)
-            }
+            replace(waiting, if (retryAgain) waiting.copy(retries = retries) else null)
             when {
                 retryAgain -> Unit
                 result.waitForConnection -> onResult(PhoneDownloadOutcome.Failed(NO_CONNECTION))
@@ -59,26 +65,43 @@ class RetryingPhoneDownloads(
         return hasWaiting()
     }
 
-    private class Attempt(val outcome: PhoneDownloadOutcome, val waitForConnection: Boolean = false)
+    /** Replaces [waiting] in the stored list with [replacement], or removes it. */
+    @Synchronized
+    private fun replace(waiting: Waiting, replacement: Waiting?) {
+        val others = load().filterNot { it.url == waiting.url }
+        save(if (replacement != null) others + replacement else others)
+    }
+
+    /** [online]: whether the phone had a connection when the last download of this attempt ended. */
+    private class Attempt(val outcome: PhoneDownloadOutcome, val online: Boolean, val waitForConnection: Boolean = false)
 
     private fun attempt(text: String, onProgress: (Int?) -> Unit): Attempt {
-        val first = updates.using { downloads.download(text, onProgress) }
-        val firstFailure = first as? PhoneDownloadOutcome.Failed ?: return Attempt(first)
-        if (kindOf(firstFailure) != FailureKind.OTHER) return failed(firstFailure)
+        val first = downloadOnce(text, onProgress)
+        val firstFailure = first.outcome as? PhoneDownloadOutcome.Failed ?: return first
+        if (Failures.classify(firstFailure.reason, first.online) != FailureKind.OTHER) {
+            return failed(firstFailure, first.online)
+        }
 
         updates.updateAfterFailure()
-        val second = updates.using { downloads.download(text, onProgress) }
-        val secondFailure = second as? PhoneDownloadOutcome.Failed ?: return Attempt(second)
-        return failed(secondFailure)
+        val second = downloadOnce(text, onProgress)
+        val secondFailure = second.outcome as? PhoneDownloadOutcome.Failed ?: return second
+        return failed(secondFailure, second.online)
     }
 
-    private fun failed(failure: PhoneDownloadOutcome.Failed): Attempt = when (kindOf(failure)) {
-        FailureKind.NO_CONNECTION -> Attempt(PhoneDownloadOutcome.Failed(WAITING_FOR_CONNECTION), waitForConnection = true)
-        FailureKind.NEEDS_LOGIN -> Attempt(PhoneDownloadOutcome.Failed(NEEDS_LOGIN))
-        FailureKind.PERMANENT, FailureKind.OTHER -> Attempt(failure)
+    /** One download, noting the connection right when it ended: its failure is sorted by that. */
+    private fun downloadOnce(text: String, onProgress: (Int?) -> Unit): Attempt {
+        val outcome = updates.using { downloads.download(text, onProgress) }
+        return Attempt(outcome, network.isOnline())
     }
 
-    private fun kindOf(failure: PhoneDownloadOutcome.Failed) = Failures.classify(failure.reason, network.isOnline())
+    private fun failed(failure: PhoneDownloadOutcome.Failed, online: Boolean): Attempt =
+        when (Failures.classify(failure.reason, online)) {
+            FailureKind.NO_CONNECTION ->
+                Attempt(PhoneDownloadOutcome.Failed(WAITING_FOR_CONNECTION), online, waitForConnection = true)
+            // Keeps yt-dlp's reason too: logging in to X comes in a later version.
+            FailureKind.NEEDS_LOGIN -> Attempt(PhoneDownloadOutcome.Failed("$NEEDS_LOGIN: ${failure.reason}"), online)
+            FailureKind.PERMANENT, FailureKind.OTHER -> Attempt(failure, online)
+        }
 
     /** A post waiting for the connection, and how many times it was retried while online. */
     private data class Waiting(val url: String, val retries: Int)

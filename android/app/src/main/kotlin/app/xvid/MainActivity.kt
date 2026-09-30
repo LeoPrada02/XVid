@@ -81,7 +81,4 @@ class MainActivity : Activity() {
         val wanted = Permissions.missing(this)
         if (wanted.isNotEmpty()) requestPermissions(wanted.toTypedArray(), 1)
     }
-
-    private fun dp(value: Int) =
-        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value.toFloat(), resources.displayMetrics).toInt()
 }

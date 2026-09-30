@@ -137,7 +137,61 @@ class RetryingPhoneDownloadsTest {
         assertFalse(downloads.hasWaiting())
     }
 
+    @Test
+    fun `a retry the app is stopped in the middle of still counts towards giving up`() {
+        engine.failWith = "ERROR: Read timed out."
+        downloads.download("https://x.com/someone/status/1")
+        engine.failWith = null
+        engine.interruptWith = Interrupted()
+
+        repeat(RetryingPhoneDownloads.MAX_CONNECTION_RETRIES) {
+            runCatching { newDownloads().retryWaiting { results += it } }
+        }
+        val requests = engine.requests.size
+        val stillWaiting = newDownloads().retryWaiting { results += it }
+
+        assertFalse(stillWaiting)
+        assertEquals(requests, engine.requests.size) // gave up without trying again
+        assertEquals(listOf<PhoneDownloadOutcome>(PhoneDownloadOutcome.Failed("No internet connection")), results)
+    }
+
     // yt-dlp updates
+
+    @Test
+    fun `X breaking yt-dlp's access updates yt-dlp instead of asking for a login`() {
+        engine.failWith = "ERROR: [twitter] 1: Error(s) while querying API: Could not authenticate you"
+        updater.onUpdate = { engine.failWith = null }
+
+        val outcome = downloads.download("https://x.com/someone/status/1")
+
+        assertIs<PhoneDownloadOutcome.Saved>(outcome)
+        assertEquals(1, updater.calls)
+    }
+
+    @Test
+    fun `the Maximum quality setting applies to the retry after an update too`() {
+        val downloads = RetryingPhoneDownloads(
+            PhoneDownloads(engine, library, network, workDir, maximumQuality = { MaximumQuality.P480 }),
+            network,
+            YtDlpUpdates(updater, storage, clock),
+            storage,
+        )
+        engine.failWith = "ERROR: [twitter] 1: Unable to extract guest token"
+
+        downloads.download("https://x.com/someone/status/1")
+
+        assertEquals(listOf(MaximumQuality.P480.format, MaximumQuality.P480.format), engine.requests.map { it.format })
+    }
+
+    @Test
+    fun `each failed download gets its own update before the retry`() {
+        engine.failWith = "ERROR: [twitter] 1: Unable to extract guest token"
+
+        downloads.download("https://x.com/someone/status/1")
+        downloads.download("https://x.com/someone/status/2")
+
+        assertEquals(2, updater.calls)
+    }
 
     @Test
     fun `a failure a newer yt-dlp might fix updates yt-dlp and retries once`() {
@@ -208,7 +262,12 @@ class RetryingPhoneDownloadsTest {
 
         val outcome = downloads.download("https://x.com/someone/status/1")
 
-        assertEquals(PhoneDownloadOutcome.Failed("This post needs an X login"), outcome)
+        assertEquals(
+            PhoneDownloadOutcome.Failed(
+                "This post needs an X login: NSFW tweet requires authentication. Use --cookies, --cookies-from-browser",
+            ),
+            outcome,
+        )
         assertEquals(1, engine.requests.size)
         assertEquals(0, updater.calls)
         assertFalse(downloads.hasWaiting())

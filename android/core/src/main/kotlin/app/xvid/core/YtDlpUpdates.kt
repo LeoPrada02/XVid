@@ -11,9 +11,9 @@ interface YtDlpUpdater {
 }
 
 /**
- * When yt-dlp gets updated: after a failed phone download (at most once an hour,
- * so a run of failures doesn't hammer GitHub), and in a background check at most
- * once a week. Any update counts as that week's check.
+ * When yt-dlp gets updated: before retrying every failed phone download a newer
+ * yt-dlp might fix (the updater only downloads when there's a newer version), and
+ * in a background check at most once a week. Any update counts as that week's check.
  *
  * Downloads run inside [using], so yt-dlp is never replaced under a running download.
  */
@@ -29,13 +29,11 @@ class YtDlpUpdates(
 
     /** Called after a failed download that a newer yt-dlp might fix. Never throws. */
     fun updateAfterFailure() {
-        updateIfDue(HOUR_MS)
+        lock.write { update() }
     }
 
     /** The weekly background check. Returns whether it checked (false: already checked this week). */
-    fun weeklyCheck(): Boolean = updateIfDue(WEEK_MS)
-
-    private fun updateIfDue(interval: Long): Boolean = lock.write {
+    fun weeklyCheck(): Boolean = lock.write {
         val now = clock.now()
         val last = storage.get(LAST_CHECK)?.toLongOrNull()
         if (last != null && now < last) {
@@ -43,20 +41,23 @@ class YtDlpUpdates(
             storage.put(LAST_CHECK, now.toString())
             return false
         }
-        if (last != null && now - last < interval) return false
-        // Recorded before trying, so a check that fails still counts.
-        storage.put(LAST_CHECK, now.toString())
+        if (last != null && now - last < WEEK_MS) return false
+        update()
+        true
+    }
+
+    private fun update() {
+        // Recorded before trying, so a check that fails still counts for the week.
+        storage.put(LAST_CHECK, clock.now().toString())
         try {
             updater.update()
         } catch (e: Exception) {
             // Not fatal: the current yt-dlp stays, and the next check tries again.
         }
-        true
     }
 
     private companion object {
-        const val HOUR_MS = 60 * 60 * 1000L
-        const val WEEK_MS = 7 * 24 * HOUR_MS
+        const val WEEK_MS = 7 * 24 * 60 * 60 * 1000L
         const val LAST_CHECK = "ytdlp.lastCheck"
     }
 }

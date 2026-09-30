@@ -83,6 +83,13 @@ def test_no_codes_before_phone_access_is_set_up(pc):
     assert pc.client(LOCAL).post("/api/pair").status_code == 409
 
 
+def test_an_older_setup_without_the_ca_file_asks_to_run_setup_again(phone_ready):
+    (phone_ready.data / "certs" / "xvid-ca.crt").unlink()
+    res = phone_ready.client(LOCAL).post("/api/pair")
+    assert res.status_code == 409
+    assert "setup.cmd" in res.json()["detail"]
+
+
 # Step 2 of Add a phone: the QR code the phone app scans. It carries this PC's address, the one-time
 # code and the certificate authority's fingerprint, so the app can trust this PC without a
 # certificate install in Android settings.

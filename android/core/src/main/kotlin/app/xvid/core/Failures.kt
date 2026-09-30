@@ -17,9 +17,16 @@ enum class FailureKind {
 
 /** Sorts the reason a phone download failed into a [FailureKind]. */
 object Failures {
+    // What yt-dlp says when X changes its guest API. It mentions authentication, but it's
+    // yt-dlp's own access that broke: a newer yt-dlp is the fix, not an X login.
+    private val brokenAccess = listOf(
+        "guest token", "could not authenticate you", "bad authentication data", "querying api", "failed to query api",
+    )
+
+    // Only wording about the post itself needing an account.
     private val needsLogin = listOf(
-        "requires authentication", "authenticat", "not authorized", "protected", "log in", "login", "sign in",
-        "--cookies", "nsfw", "age-restricted",
+        "requires authentication", "only be available when logged in", "not authorized to see",
+        "not authorized to view", "protected", "--cookies", "nsfw", "age-restricted",
     )
 
     private val permanent = listOf(
@@ -37,8 +44,9 @@ object Failures {
     )
 
     /**
-     * [reason] is the failure's readable reason; [online] whether the phone has a
-     * connection now. Login and permanent problems win over network wording.
+     * [reason] is the failure's readable reason; [online] whether the phone had a
+     * connection when the download failed. Broken access wins over login wording,
+     * and login and permanent problems win over network wording.
      * HTTP errors other than "gone" (403, 429, 5xx, ...) aren't sorted as no connection:
      * X answering oddly is what a newer yt-dlp may fix.
      */
@@ -46,6 +54,7 @@ object Failures {
         if (!online) return FailureKind.NO_CONNECTION
         val text = reason.lowercase()
         return when {
+            brokenAccess.any { it in text } -> FailureKind.OTHER
             needsLogin.any { it in text } -> FailureKind.NEEDS_LOGIN
             permanent.any { it in text } -> FailureKind.PERMANENT
             noConnection.any { it in text } -> FailureKind.NO_CONNECTION

@@ -49,7 +49,4 @@ class PhoneLibrarySection(context: Context) : LinearLayout(context) {
             post { summary.text = text }
         }.start()
     }
-
-    private fun dp(value: Int) =
-        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value.toFloat(), resources.displayMetrics).toInt()
 }

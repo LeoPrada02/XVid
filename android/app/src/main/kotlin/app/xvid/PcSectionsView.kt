@@ -110,7 +110,4 @@ class PcSectionsView(context: Context) : LinearLayout(context) {
     }
 
     private fun text(sizeSp: Float) = TextView(activity).apply { setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp) }
-
-    private fun dp(value: Int) =
-        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value.toFloat(), resources.displayMetrics).toInt()
 }

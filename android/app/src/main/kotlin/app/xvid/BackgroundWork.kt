@@ -2,11 +2,14 @@ package app.xvid
 
 import android.app.NotificationManager
 import android.content.Context
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.os.SystemClock
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
+import androidx.work.ForegroundInfo
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequest
 import androidx.work.PeriodicWorkRequest
@@ -53,6 +56,7 @@ class RetryDownloadsWorker(context: Context, params: WorkerParameters) : Worker(
         val notifications = applicationContext.getSystemService(NotificationManager::class.java)
         var lastPercent: Int? = -1
         var lastUpdate = 0L
+        runInForeground()
         val stillWaiting = try {
             (applicationContext as XVidApp).retryingDownloads.retryWaiting(
                 onProgress = { percent ->
@@ -71,6 +75,25 @@ class RetryDownloadsWorker(context: Context, params: WorkerParameters) : Worker(
             notifications.cancel(PROGRESS_ID)
         }
         return if (stillWaiting) Result.retry() else Result.success()
+    }
+
+    /**
+     * Asks to run in the foreground like a download started from Share, so Android doesn't stop
+     * it after about 10 minutes. Android 12 and later may refuse while XVid is in the background;
+     * then it runs as normal background work, and the core counts a retry that gets stopped.
+     */
+    private fun runInForeground() {
+        val notification = Notifications.progress(applicationContext, null)
+        val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ForegroundInfo(PROGRESS_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            ForegroundInfo(PROGRESS_ID, notification)
+        }
+        try {
+            setForegroundAsync(info).get()
+        } catch (e: Exception) {
+            // Not allowed right now: carry on in the background.
+        }
     }
 
     private companion object {

@@ -533,6 +533,8 @@ def create_pairing(request: Request) -> dict:
         raise HTTPException(403, "Only available on the PC")
     if not https_ready():
         raise HTTPException(409, "Phone access isn't set up yet. Run setup.cmd on the PC.")
+    if not CA_FILE.exists():  # set up by an older version, before the app pinned the CA
+        raise HTTPException(409, "Phone access needs updating for the XVid app. Run setup.cmd on the PC again.")
     code = new_code(pair_codes)
     # The code goes in the #fragment, which browsers never send over the (plain HTTP) network.
     # The phone installs the web app from the home PC, and logs in on this PC. (The native app comes

@@ -11,6 +11,7 @@ class FakeEngine(
     var videosPerPost: Int = 1,
     var failWith: String? = null,
     var crashWith: Exception? = null,
+    var interruptWith: Error? = null,
     var progressSteps: List<Float> = listOf(0f, 50f, 100f),
 ) : DownloadEngine {
     val requests = mutableListOf<EngineRequest>()
@@ -20,6 +21,7 @@ class FakeEngine(
         progressSteps.forEach(onProgress)
         failWith?.let { throw EngineError(it) }
         crashWith?.let { throw it }
+        interruptWith?.let { throw it }
         request.outputDir.mkdirs()
         return (1..videosPerPost).map { n ->
             File(request.outputDir, "video$n.mp4").apply { writeText("video $n of ${request.url}") }

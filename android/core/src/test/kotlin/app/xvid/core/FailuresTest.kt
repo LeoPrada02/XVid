@@ -29,9 +29,22 @@ class FailuresTest {
     fun `posts that need an X login are needs login`() {
         listOf(
             "NSFW tweet requires authentication. Use --cookies, --cookies-from-browser, --username and --password",
+            "Requested tweet may only be available when logged in",
+            "Sorry, you are not authorized to see this status",
             "You are not authorized to view this protected tweet",
-            "Please log in to see this post",
         ).forEach { assertEquals(FailureKind.NEEDS_LOGIN, kindOf(it), it) }
+    }
+
+    @Test
+    fun `X breaking yt-dlp's own access isn't a login problem`() {
+        // What yt-dlp says when X changes its guest API: a newer yt-dlp is the fix, not an X login.
+        listOf(
+            "Error(s) while querying API: Could not authenticate you",
+            "Bad guest token",
+            "Unable to obtain guest token",
+            "Failed to query API: HTTP Error 401: Unauthorized",
+            "Error(s) while querying API: Bad Authentication data",
+        ).forEach { assertEquals(FailureKind.OTHER, kindOf(it), it) }
     }
 
     @Test

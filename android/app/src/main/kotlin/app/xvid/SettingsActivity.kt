@@ -55,7 +55,4 @@ class SettingsActivity : Activity() {
         MaximumQuality.P720 -> R.string.quality_720p
         MaximumQuality.P480 -> R.string.quality_480p
     }
-
-    private fun dp(value: Int) =
-        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value.toFloat(), resources.displayMetrics).toInt()
 }

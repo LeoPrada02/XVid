@@ -201,9 +201,6 @@ class PhoneLibraryActivity : Activity() {
         }
     }
 
-    private fun dp(value: Int) =
-        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value.toFloat(), resources.displayMetrics).toInt()
-
     companion object {
         fun open(context: Context) {
             context.startActivity(Intent(context, PhoneLibraryActivity::class.java))

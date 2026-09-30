@@ -52,12 +52,8 @@ class YtDlpUpdatesTest {
     }
 
     @Test
-    fun `after a failed download yt-dlp is updated, at most once an hour`() {
+    fun `every failed download gets an update before its retry`() {
         updates.updateAfterFailure()
-        updates.updateAfterFailure()
-        assertEquals(1, updater.calls)
-
-        clock.advanceHours(1)
         updates.updateAfterFailure()
         assertEquals(2, updater.calls)
     }
