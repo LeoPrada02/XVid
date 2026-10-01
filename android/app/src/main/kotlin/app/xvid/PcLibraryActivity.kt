@@ -3,8 +3,6 @@ package app.xvid
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
@@ -34,18 +32,7 @@ class PcLibraryActivity : Activity() {
         pc = intent.pc(app) ?: return finish()
         listing = Executors.newSingleThreadExecutor()
         status = text(TextStyle.SMALL)
-        // Tiles at least 150dp wide, like the phone library's.
-        val grid = GridView(this).apply {
-            numColumns = GridView.AUTO_FIT
-            columnWidth = dp(150)
-            stretchMode = GridView.STRETCH_COLUMN_WIDTH
-            horizontalSpacing = dp(12)
-            verticalSpacing = dp(12)
-            setPadding(0, dp(12), 0, dp(24))
-            clipToPadding = false
-            selector = ColorDrawable(Color.TRANSPARENT)
-            adapter = this@PcLibraryActivity.adapter
-        }
+        val grid = ZoomableGrid(this, "pcLibrary", adapter)
         setContentView(
             column {
                 setBackgroundColor(color(R.color.bg))
@@ -98,6 +85,7 @@ class PcLibraryActivity : Activity() {
         override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
             val tile = convertView as? LinearLayout ?: VideoTiles.create(this@PcLibraryActivity)
             VideoTiles.bind(tile, pc, videos[position])
+            VideoTiles.fit(tile, (parent as? GridView)?.numColumns ?: 2)
             return tile
         }
     }

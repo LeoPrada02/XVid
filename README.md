@@ -201,7 +201,11 @@ The app finds the PCs on the Wi-Fi by their ids (see *Finding PCs* above), so a 
 needs no new pairing.
 
 **PC libraries on the phone:** each reachable PC's section on the main screen shows its newest
-videos, and **See all** opens its whole PC library. Tapping a video streams it from the PC inside
+videos, and **See all** opens its whole PC library. Tapping a PC's name (or the Phone library's
+title) folds that library away; the app remembers it. The phone downloads are behind the
+**Downloads** button at the top, next to **Settings**. On a whole library (**See all**), pinch to
+show more and smaller videos a row (up to 4), or spread your fingers for fewer and bigger (down to 1).
+Tapping a video streams it from the PC inside
 the app (other video players wouldn't trust the PCs' certificate authority). Under it, **Save to
 phone** copies it into `Movies/XVid` with a progress notification, and **Delete** removes it from
 that PC library after asking first. Videos the PC has no thumbnail for (uploads, files dropped

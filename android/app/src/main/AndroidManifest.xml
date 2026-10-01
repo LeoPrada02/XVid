@@ -38,6 +38,10 @@
             android:name=".SettingsActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".DownloadsActivity"
+            android:exported="false" />
+
         <!-- Share → XVid: a small sheet, Phone or To PC, that closes once chosen. -->
         <activity
             android:name=".ShareActivity"

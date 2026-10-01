@@ -89,7 +89,7 @@ dependencies {
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
     // Plays PC library videos inside the app: other players wouldn't trust the PCs' private
     // certificate authority, so it streams over the app's own connection (OkHttp, pinned to that CA).
-    implementation("androidx.media3:media3-exoplayer:1.4.1")
-    implementation("androidx.media3:media3-ui:1.4.1")
-    implementation("androidx.media3:media3-datasource-okhttp:1.4.1")
+    implementation("androidx.media3:media3-exoplayer:1.5.1")
+    implementation("androidx.media3:media3-ui:1.5.1")
+    implementation("androidx.media3:media3-datasource-okhttp:1.5.1")
 }

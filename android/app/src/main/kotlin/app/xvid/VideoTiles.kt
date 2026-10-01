@@ -112,6 +112,14 @@ object VideoTiles {
         }
     }
 
+    /** Fewer words on smaller tiles: one line of title with 3 videos a row, only the thumbnail with 4 or more. */
+    fun fit(tile: LinearLayout, columns: Int) {
+        val body = tile.getChildAt(1) as LinearLayout
+        body.visibility = if (columns >= 4) View.GONE else View.VISIBLE
+        (body.getChildAt(0) as TextView).maxLines = if (columns >= 3) 1 else 2
+        body.getChildAt(1).visibility = if (columns >= 3) View.GONE else View.VISIBLE
+    }
+
     /** When a video was saved and its size, like "5 min. ago · 12 MB". */
     fun meta(context: Context, addedAt: Long, sizeBytes: Long): String = context.getString(
         R.string.library_tile_meta,

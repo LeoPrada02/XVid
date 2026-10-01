@@ -17,7 +17,8 @@ import app.xvid.core.XPostLink
 
 /**
  * The main screen, laid out like the PC web app: a box to paste an X link (to download to
- * the phone or send To PC), the phone downloads, the phone library, the PCs and the queue. Also asks for the permissions phone
+ * the phone or send To PC), the phone library, the PCs and the queue; the phone downloads and the
+ * settings each open their own screen. Also asks for the permissions phone
  * downloads need (notifications; storage on Android 8 and 9).
  */
 class MainActivity : Activity() {
@@ -48,8 +49,13 @@ class MainActivity : Activity() {
                 requestFocus()
                 addView(row {
                     addView(text(TextStyle.TITLE, R.string.main_title), fill())
+                    addView(button(R.string.recent_open, ButtonStyle.SECONDARY, small = true) {
+                        startActivity(Intent(this@MainActivity, DownloadsActivity::class.java))
+                    })
                     addView(button(R.string.settings_open, ButtonStyle.SECONDARY, small = true) {
                         startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
+                    }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                        marginStart = dp(8)
                     })
                 })
                 addView(link, spaced(12))
@@ -59,7 +65,6 @@ class MainActivity : Activity() {
                     addView(button(R.string.main_download) { download() }, fill().apply { marginStart = dp(8) })
                 }, spaced(8))
                 addView(linkError, spaced(6))
-                addView(RecentDownloadsSection(this@MainActivity))
                 addView(PhoneLibrarySection(this@MainActivity))
                 addView(PcSectionsView(this@MainActivity))
                 addView(QueueSection(this@MainActivity))

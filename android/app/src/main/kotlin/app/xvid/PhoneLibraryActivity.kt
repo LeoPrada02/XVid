@@ -6,8 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.ContentObserver
-import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -47,18 +45,7 @@ class PhoneLibraryActivity : Activity() {
         super.onCreate(savedInstanceState)
         listing = Executors.newSingleThreadExecutor()
         status = text(TextStyle.SMALL)
-        // Tiles at least 150dp wide, like the web app's library grid.
-        val grid = GridView(this).apply {
-            numColumns = GridView.AUTO_FIT
-            columnWidth = dp(150)
-            stretchMode = GridView.STRETCH_COLUMN_WIDTH
-            horizontalSpacing = dp(12)
-            verticalSpacing = dp(12)
-            setPadding(0, dp(12), 0, dp(24))
-            clipToPadding = false
-            selector = ColorDrawable(Color.TRANSPARENT)
-            adapter = this@PhoneLibraryActivity.adapter
-        }
+        val grid = ZoomableGrid(this, "phoneLibrary", adapter)
         setContentView(
             column {
                 setBackgroundColor(color(R.color.bg))
@@ -134,6 +121,7 @@ class PhoneLibraryActivity : Activity() {
         override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
             val tile = convertView as? LinearLayout ?: VideoTiles.create(this@PhoneLibraryActivity)
             VideoTiles.bind(tile, videos[position])
+            VideoTiles.fit(tile, (parent as? GridView)?.numColumns ?: 2)
             return tile
         }
     }

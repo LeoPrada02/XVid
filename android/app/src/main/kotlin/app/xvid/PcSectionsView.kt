@@ -14,7 +14,7 @@ import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 
 /**
  * The PCs part of the main screen: one section per known PC, shown as reachable or not (with
- * its PC library when it is, see [PcLibraryPreview]), and
+ * its PC library when it is, see [PcLibraryPreview]; tapping the PC's name folds that away), and
  * "Pair with a PC", which scans the QR code in step 2 of the PC's Add a phone dialog.
  *
  * The scanner is Google's code scanner (Play services): it needs no camera permission, since the
@@ -101,11 +101,13 @@ class PcSectionsView(context: Context) : LinearLayout(context) {
             return
         }
         for (status in statuses) {
+            val reachable = !checking && status.state == PcState.REACHABLE
             sections.addView(activity.card {
-                addView(activity.text(TextStyle.HEADING).apply {
+                val name = activity.text(TextStyle.HEADING).apply {
                     text = if (status.pc.home) activity.getString(R.string.pcs_home, status.pc.name) else status.pc.name
                     textSize = 15f
-                })
+                }
+                addView(name)
                 addView(activity.text(TextStyle.SMALL).apply {
                     setText(when {
                         checking -> R.string.pcs_checking
@@ -116,7 +118,15 @@ class PcSectionsView(context: Context) : LinearLayout(context) {
                     if (!checking && status.state == PcState.REACHABLE) setTextColor(activity.color(R.color.ok))
                     if (!checking && status.state == PcState.PAIR_AGAIN) setTextColor(activity.color(R.color.danger))
                 }, activity.spaced(4))
-                if (!checking && status.state == PcState.REACHABLE) addView(PcLibraryPreview(activity, status.pc), activity.spaced(8))
+                if (reachable) {
+                    val library = activity.column()
+                    addView(library, activity.spaced(8))
+                    activity.foldable(name, "pc.${status.pc.id}") { open ->
+                        // Loaded only when open, so a folded PC's library isn't fetched.
+                        if (open && library.childCount == 0) library.addView(PcLibraryPreview(activity, status.pc))
+                        library.visibility = if (open) VISIBLE else GONE
+                    }
+                }
             }, activity.spaced())
         }
     }

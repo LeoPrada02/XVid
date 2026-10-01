@@ -8,7 +8,7 @@ import app.xvid.core.PhoneLibraryVideo
 /**
  * The Phone library section of the main screen, like a library in the web app: the
  * newest videos as tiles, read again each time the screen is shown. "See all" opens
- * [PhoneLibraryActivity].
+ * [PhoneLibraryActivity]. Tapping its title folds it away.
  */
 class PhoneLibrarySection(context: Context) : LinearLayout(context) {
     private val summary = context.text(TextStyle.SMALL)
@@ -16,9 +16,8 @@ class PhoneLibrarySection(context: Context) : LinearLayout(context) {
 
     init {
         orientation = VERTICAL
-        addView(context.sectionHead(R.string.library_title, context.button(R.string.library_see_all, ButtonStyle.LINK) {
-            PhoneLibraryActivity.open(context)
-        }))
+        val seeAll = context.button(R.string.library_see_all, ButtonStyle.LINK) { PhoneLibraryActivity.open(context) }
+        addView(context.sectionHead(R.string.library_title, seeAll, "phoneLibrary", summary, grid))
         addView(summary)
         addView(grid)
     }

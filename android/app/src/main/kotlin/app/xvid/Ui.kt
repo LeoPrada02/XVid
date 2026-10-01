@@ -120,11 +120,35 @@ internal fun Context.progressBar(percent: Int? = null): ProgressBar =
         progressBackgroundTintList = ColorStateList.valueOf(color(R.color.border))
     }
 
-/** A section heading with an optional action on the right, like `.section-head`. */
-internal fun Context.sectionHead(titleId: Int, action: View? = null): LinearLayout = row {
+/**
+ * A section heading with an optional action on the right, like `.section-head`. With a [foldKey],
+ * tapping the title folds [folds] away (see [foldable]).
+ */
+internal fun Context.sectionHead(titleId: Int, action: View? = null, foldKey: String? = null, vararg folds: View): LinearLayout = row {
     setPadding(0, dp(20), 0, dp(8))
-    addView(text(TextStyle.HEADING, titleId), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+    val title = text(TextStyle.HEADING, titleId)
+    addView(title, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
     action?.let { addView(it) }
+    foldKey?.let { key -> foldable(title, key) { open -> folds.forEach { it.visibility = if (open) View.VISIBLE else View.GONE } } }
+}
+
+/**
+ * Makes tapping [head] fold or unfold part of a screen, which [show] does; an arrow before the head's
+ * text shows which. Open at first, and remembered across restarts under [key].
+ */
+internal fun Context.foldable(head: TextView, key: String, show: (open: Boolean) -> Unit) {
+    val folds = getSharedPreferences("folds", Context.MODE_PRIVATE)
+    val title = head.text
+    fun apply(open: Boolean) {
+        head.text = "${if (open) "\u25BE" else "\u25B8"}  $title"
+        show(open)
+    }
+    apply(!folds.getBoolean(key, false))
+    head.setOnClickListener {
+        val open = folds.getBoolean(key, false) // it was folded, so it opens
+        folds.edit().putBoolean(key, !open).apply()
+        apply(open)
+    }
 }
 
 /** A small sheet over the app below (see Theme.XVid.Sheet), like a dialog: [content] on a rounded card. */

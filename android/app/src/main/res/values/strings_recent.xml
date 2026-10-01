@@ -7,6 +7,7 @@
     <string name="main_link_empty">Paste a link to an X post first.</string>
     <string name="main_link_not_x">That isn\'t a link to an X post.</string>
     <string name="recent_title">Downloads</string>
+    <string name="recent_open">Downloads</string>
     <string name="recent_clear">Clear finished</string>
     <string name="recent_notifications_off">Notifications are off for XVid, so check here how your downloads went.</string>
     <string name="recent_notifications_turn_on">Turn on notifications</string>
