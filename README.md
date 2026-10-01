@@ -41,16 +41,17 @@ Saved videos go to **Downloads**. Google Photos shows them under *Library → Do
 
 | | |
 |---|---|
-| `setup.cmd` | Run again anytime to change answers, or if the PC's Wi-Fi address changed |
+| `setup.cmd` | Run again anytime to change answers |
 | `start.cmd` | Start or restart XVid in a visible window (useful to see errors) |
 | `stop.cmd` | Stop XVid |
 
 If you chose to start XVid with Windows, it runs in the background after you log in.
 Its log is in `%LOCALAPPDATA%\XVid\xvid.log`.
 
-**Reserve the PC's address in your router** (DHCP reservation; setup prints the address).
-Installed phones point to that address. If it changes, XVid warns you: run `setup.cmd` again
-and add the phone again.
+The phone app finds each PC on the Wi-Fi by itself, so there's no need to reserve the PC's address
+in your router: if the address changes, the app keeps working without running `setup.cmd` or pairing
+again. (XVid used in the phone's *browser* still points to the old address: run `setup.cmd` again and
+add the phone again.)
 
 ## More than one PC
 
@@ -67,8 +68,6 @@ ones are on: each PC that's on shows its own library, and downloads to the phone
 The other PC gets the home PC's certificate authority and login, so the phone trusts it and is
 already logged in: no second certificate and no second app. With both PCs on, **To PC** and
 **Upload** go to the PC chosen under the link box.
-
-Reserve **both** PCs' addresses in your router.
 
 ## Sensitive, protected and subscriber-only posts
 
@@ -118,6 +117,11 @@ Phone before trusting the PC -----------> PC :8000 HTTP   only the setup page an
   can't use it. Other devices need pairing (or the token), and repeated wrong attempts get blocked
   for 5 minutes. The phone app sends its login as a header; video and thumbnail links carry a
   separate key that only opens media.
+- **Finding PCs:** each PC announces itself on the home network with mDNS / DNS-SD (service
+  `_xvid._tcp`, UDP port 5353), with its id and name; `app/discovery.py` answers for it. The phone
+  app looks for that service, matches what it finds to its paired PCs by id, and otherwise tries
+  each PC's last known address. It accepts any certificate signed by the PCs' authority, whatever
+  address it was made for, so a PC's certificate keeps working after its address changes.
 - **Several PCs:** the app keeps a copy of itself on the phone (a service worker) and a list of
   your PCs, and asks each one whether it's on. Joining a PC copies the home PC's certificate
   authority and token over HTTPS. The code pins the home PC's certificate, so nothing is sent to an impostor.
@@ -139,14 +143,17 @@ remove the certificate (*Settings → Encryption & credentials → User credenti
 - **A download fails:** restart XVid (`start.cmd`) to get the latest yt-dlp. For sensitive or
   subscriber-only posts, see the cookies section above.
 - **The phone says "Can't reach the PC":** the PC is off or XVid isn't running, the phone isn't
-  on the same Wi-Fi, or the PC's address changed (run `setup.cmd` again).
+  on the same Wi-Fi.
 - **The setup page never shows "Certificate installed":** check it's under *User credentials*
   in the phone's settings, then use *Continue anyway*. If Chrome still warns, reinstall the certificate.
 - **XVid isn't in the Share menu:** it must be *installed* (the **Install app** button,
   or Chrome menu ⋮ → **Install app**).
 - **Windows asked whether Python can use networks:** allow it on **Private** networks.
 - **A PC is missing on the phone:** open the app once while the home PC is on, so it learns about
-  new PCs. If a PC's address changed, run `setup.cmd` again on it. It tells the home PC by itself.
+  new PCs.
+- **The app doesn't find a PC whose address changed:** the app looks for PCs on the Wi-Fi
+  (UDP port 5353). Run `setup.cmd` once on that PC so the firewall lets it answer, and check the
+  network is set to **Private** in Windows.
 
 ## Tests
 
@@ -186,6 +193,8 @@ public certificate from the PC, checks it against the fingerprint, and only then
 over a connection that trusts that authority alone. The app trusts it for its own connections
 only, never system-wide, so there's no certificate to install in Android settings. Pairing with
 one PC covers every PC that joined it: the app learns them from any reachable PC's PC list.
+The app finds the PCs on the Wi-Fi by their ids (see *Finding PCs* above), so a PC's new address
+needs no new pairing.
 
 **X login on the phone:** the phone app has its own X login, separate from the PCs'
 `cookies.txt`. In the app's Settings, tap **Log in to X** and log in with your username and

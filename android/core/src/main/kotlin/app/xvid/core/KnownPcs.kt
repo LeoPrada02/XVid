@@ -21,8 +21,19 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLException
 
-/** A PC the phone app knows. Its address identifies it (as on the PCs themselves). */
-data class Pc(val name: String, val url: String, val home: Boolean)
+/**
+ * A PC the phone app knows. Its [id] identifies it; its address ([url]) can change, and is learned
+ * again from the network. PCs remembered from before PCs had ids use their address as their id.
+ */
+data class Pc(val id: String, val name: String, val url: String, val home: Boolean) {
+    private val hasId get() = id != url
+
+    /** Whether [other] is this PC: the same id, or the same address for a PC without an id yet. */
+    internal fun sameAs(other: Pc) = id == other.id || (url == other.url && !(hasId && other.hasId))
+
+    /** Whether [other] is surely another PC: both have ids, and they differ. */
+    internal fun isAnotherPcThan(other: Pc) = hasId && other.hasId && id != other.id
+}
 
 enum class PcState {
     REACHABLE,
@@ -59,11 +70,12 @@ class PcConnection(val http: OkHttpClient, val session: String, val mediaKey: St
 /**
  * Pairing and the known PCs. Pairing with one PC trusts its private CA (for XVid's own connections
  * only) and logs in; since joined PCs share the home PC's CA and login, that covers all of them.
- * The known PCs are learned from any reachable PC's PC list.
+ * The known PCs are learned from any reachable PC's PC list, and their current addresses from
+ * [discovery], falling back to the last address each was reached at.
  *
  * Every call does network I/O, so none may run on the main thread.
  */
-class KnownPcs(private val storage: Storage) {
+class KnownPcs(private val storage: Storage, private val discovery: PcDiscovery) {
     private val lock = Any()
 
     @Volatile
@@ -117,7 +129,7 @@ class KnownPcs(private val storage: Storage) {
 
         // 3. Remember it all, and learn the PCs that joined it.
         val listed = fetchList(http, qr.pc.toString().trimEnd('/'), login.first)
-            ?: listOf(Pc(qr.pc.host, qr.pc.toString().trimEnd('/'), home = false))
+            ?: qr.pc.toString().trimEnd('/').let { listOf(Pc(it, qr.pc.host, it, home = false)) }
         synchronized(lock) {
             val sameHome = storage.get(CA)?.let { runCatching { PcTrust.fingerprint(PcTrust.parsePem(it)) }.getOrNull() } == qr.fingerprint
             storage.put(CA, caPem)
@@ -129,43 +141,72 @@ class KnownPcs(private val storage: Storage) {
     }
 
     /**
-     * Checks which known PCs are reachable, and learns joined PCs (and new names) from the lists of
-     * the reachable ones. PCs that aren't reachable are kept.
+     * Checks which known PCs are reachable, at the address [discovery] found each at or else its last
+     * known address, and learns joined PCs (and new names) from the lists of the reachable ones.
+     * PCs that aren't reachable are kept.
      */
     fun refresh(): List<PcStatus> {
         val connection = connection() ?: return emptyList()
         val http = connection.http.newBuilder().connectTimeout(3, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).build()
+        val found = runCatching { discovery.find() }.getOrDefault(emptyList()).associate { it.id to it.url }
         val states = mutableMapOf<String, PcState>()
+        val reachedAt = mutableMapOf<String, String>()
         var toCheck = list()
         val pool = Executors.newFixedThreadPool(4)
         try {
             while (toCheck.isNotEmpty()) {
-                val checks = toCheck.map { pc -> pc.url to pool.submit<Pair<PcState, List<Pc>?>> { check(http, pc.url, connection.session) } }
-                for ((url, future) in checks) {
-                    val (state, listed) = future.get()
-                    states[url] = state
-                    if (listed != null) learn(listed)
+                val checks = toCheck.map { pc ->
+                    val addresses = listOfNotNull(found[pc.id], pc.url).distinct()
+                    pc.id to pool.submit<Check> { checkAt(http, pc, addresses, connection.session) }
                 }
-                toCheck = list().filter { it.url !in states } // PCs just learned from a list
+                for ((id, future) in checks) {
+                    val check = future.get()
+                    // A PC remembered from before ids lists itself with its id: keep its result under that too.
+                    for (key in setOfNotNull(id, check.itself?.id)) {
+                        states[key] = check.state
+                        check.url?.let { reachedAt[key] = it }
+                    }
+                    check.listed?.let(::learn)
+                }
+                toCheck = list().filter { it.id !in states } // PCs just learned from a list
             }
         } finally {
             pool.shutdown()
         }
-        return list().map { PcStatus(it, states[it.url] ?: PcState.NOT_REACHABLE) }
+        // Where a PC was just reached is where it is now, whatever older lists from other PCs say.
+        synchronized(lock) { storage.put(LIST, writePcs(list().map { pc -> reachedAt[pc.id]?.let { pc.copy(url = it) } ?: pc })) }
+        return list().map { PcStatus(it, states[it.id] ?: PcState.NOT_REACHABLE) }
     }
 
-    private fun check(http: OkHttpClient, url: String, session: String): Pair<PcState, List<Pc>?> {
-        val base = url.toHttpUrlOrNull() ?: return PcState.NOT_REACHABLE to null
+    /** How checking a PC went: where it answered, if it did, and its PC list (which lists the PC itself first). */
+    private class Check(val state: PcState, val url: String? = null, val listed: List<Pc>? = null) {
+        val itself: Pc? get() = listed?.firstOrNull()?.takeIf { url != null }
+    }
+
+    /** Checks [pc] at each of [addresses] in turn, until it answers at one. */
+    private fun checkAt(http: OkHttpClient, pc: Pc, addresses: List<String>, session: String): Check {
+        var check = Check(PcState.NOT_REACHABLE)
+        for (url in addresses) {
+            check = check(http, pc, url, session)
+            if (check.state != PcState.NOT_REACHABLE) break
+        }
+        return check
+    }
+
+    private fun check(http: OkHttpClient, pc: Pc, url: String, session: String): Check {
+        val base = url.toHttpUrlOrNull() ?: return Check(PcState.NOT_REACHABLE)
         return try {
             http.newCall(listRequest(base.resolve("/api/pcs")!!.toString(), session)).execute().use {
+                val listed = if (it.isSuccessful) it.json()?.let(::parsePcs) else null
                 when {
-                    it.code == 401 -> PcState.PAIR_AGAIN to null
-                    !it.isSuccessful -> PcState.NOT_REACHABLE to null // something else lives at that address now
-                    else -> PcState.REACHABLE to it.json()?.let(::parsePcs)
+                    it.code == 401 -> Check(PcState.PAIR_AGAIN, url)
+                    listed == null -> Check(PcState.NOT_REACHABLE) // something else lives at that address now
+                    listed.firstOrNull()?.isAnotherPcThan(pc) == true -> Check(PcState.NOT_REACHABLE, listed = listed) // another PC took it
+                    else -> Check(PcState.REACHABLE, url, listed)
                 }
             }
         } catch (e: IOException) {
-            PcState.NOT_REACHABLE to null
+            Check(PcState.NOT_REACHABLE)
         }
     }
 
@@ -191,11 +232,10 @@ class KnownPcs(private val storage: Storage) {
         val BASE = OkHttpClient()
         val PAIRING: OkHttpClient = BASE.newBuilder().connectTimeout(5, TimeUnit.SECONDS).readTimeout(15, TimeUnit.SECONDS).build()
 
-        /** [known] updated with [listed]: new names for known addresses, and new PCs at the end. */
+        /** [known] updated with [listed]: new names and addresses for known PCs, and new PCs at the end. */
         fun merge(known: List<Pc>, listed: List<Pc>): List<Pc> {
-            val byUrl = listed.associateBy { it.url }
-            val updated = known.map { byUrl[it.url] ?: it }
-            return updated + listed.filter { pc -> updated.none { it.url == pc.url } }
+            val updated = known.map { pc -> listed.firstOrNull { it.sameAs(pc) } ?: pc }
+            return updated + listed.filter { pc -> updated.none { it.sameAs(pc) } }
         }
 
         fun Response.json(): JsonElement? = runCatching { Json.parseToJsonElement(body!!.string()) }.getOrNull()
@@ -207,11 +247,11 @@ class KnownPcs(private val storage: Storage) {
         fun parsePcs(json: JsonElement): List<Pc> = (json as? JsonArray).orEmpty().mapNotNull { item ->
             val url = item.string("url")?.trimEnd('/')?.takeIf { it.toHttpUrlOrNull()?.isHttps == true } ?: return@mapNotNull null
             val home = ((item as JsonObject)["home"])?.jsonPrimitive?.booleanOrNull ?: false
-            Pc(item.string("name") ?: url, url, home)
+            Pc(item.string("id")?.takeIf { it.isNotBlank() } ?: url, item.string("name") ?: url, url, home)
         }
 
         fun writePcs(pcs: List<Pc>): String = JsonArray(pcs.map {
-            buildJsonObject { put("name", it.name); put("url", it.url); put("home", it.home) }
+            buildJsonObject { put("id", it.id); put("name", it.name); put("url", it.url); put("home", it.home) }
         }).toString()
     }
 }

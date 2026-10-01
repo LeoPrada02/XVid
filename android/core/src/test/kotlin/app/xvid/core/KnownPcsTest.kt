@@ -13,11 +13,24 @@ import kotlin.test.assertTrue
 class KnownPcsTest {
     private val ca = FakeCa()
     private val storage = FakeStorage()
-    private val pcs = KnownPcs(storage)
+    private val discovery = FakeDiscovery()
+    private val pcs = KnownPcs(storage, discovery)
     private val servers = mutableListOf<FakePc>()
 
-    private fun pc(name: String, signedBy: FakeCa = ca, isHome: Boolean = true) =
-        FakePc(name, signedBy, isHome).also { servers += it }
+    private fun pc(
+        name: String,
+        signedBy: FakeCa = ca,
+        isHome: Boolean = true,
+        id: String = "id-of-$name",
+        certifiedFor: List<String>? = null,
+        port: Int = 0,
+    ) = FakePc(name, signedBy, isHome, id = id, certifiedFor = certifiedFor, port = port).also { servers += it }
+
+    /** [pc] stopped, and started again at a new address (a new port, here). */
+    private fun moved(pc: FakePc): FakePc {
+        pc.stop()
+        return pc(pc.name, isHome = pc.isHome, id = pc.id).also { it.others = pc.others }
+    }
 
     @AfterEach
     fun stopServers() = servers.forEach { runCatching { it.stop() } }
@@ -107,7 +120,7 @@ class KnownPcsTest {
         val home = pc("home")
         pcs.pair(home.qr())
 
-        val restarted = KnownPcs(storage)
+        val restarted = KnownPcs(storage, discovery)
 
         assertEquals(listOf(home.listed), restarted.list())
         assertEquals(listOf(PcStatus(home.listed, PcState.REACHABLE)), restarted.refresh())
@@ -154,7 +167,7 @@ class KnownPcsTest {
 
         pcs.refresh()
 
-        assertEquals(listOf(Pc("living room", home.url, home = true)), pcs.list())
+        assertEquals(listOf(Pc(home.id, "living room", home.url, home = true)), pcs.list())
     }
 
     // Reachability
@@ -195,5 +208,99 @@ class KnownPcsTest {
 
         assertEquals(listOf(otherHome.listed), pcs.list())
         assertEquals(mapOf("other home" to PcState.REACHABLE), statesByName())
+    }
+
+    // Finding PCs on the network
+
+    @Test
+    fun `a PC that moved to a new address is found there and remembered there`() {
+        val home = pc("home")
+        pcs.pair(home.qr())
+        val movedHome = moved(home)
+        discovery.found = listOf(FoundPc(home.id, movedHome.url))
+
+        assertEquals(listOf(PcStatus(movedHome.listed, PcState.REACHABLE)), pcs.refresh())
+        assertEquals(listOf(movedHome.listed), pcs.list())
+
+        discovery.found = emptyList() // found there once, it's reached there later even without discovery
+        assertEquals(listOf(PcStatus(movedHome.listed, PcState.REACHABLE)), pcs.refresh())
+    }
+
+    @Test
+    fun `a joined PC's new address wins over an older address in another PC's list`() {
+        val home = pc("home")
+        val laptop = pc("laptop", isHome = false)
+        home.others = listOf(laptop.listed)
+        pcs.pair(home.qr())
+        val movedLaptop = moved(laptop) // the home PC still lists the old address
+        discovery.found = listOf(FoundPc(laptop.id, movedLaptop.url))
+
+        assertEquals(mapOf("home" to PcState.REACHABLE, "laptop" to PcState.REACHABLE), statesByName())
+        assertEquals(listOf(home.url, movedLaptop.url), pcs.list().map { it.url })
+    }
+
+    @Test
+    fun `when discovery finds nothing, each PC is tried at its last known address`() {
+        val home = pc("home")
+        pcs.pair(home.qr())
+
+        discovery.found = emptyList()
+        assertEquals(listOf(PcStatus(home.listed, PcState.REACHABLE)), pcs.refresh())
+
+        discovery.failWith = "no Wi-Fi"
+        assertEquals(listOf(PcStatus(home.listed, PcState.REACHABLE)), pcs.refresh())
+    }
+
+    @Test
+    fun `when nothing answers at the found address, the last known address is tried`() {
+        val home = pc("home")
+        pcs.pair(home.qr())
+        val gone = pc("gone").also { it.stop() }
+        discovery.found = listOf(FoundPc(home.id, gone.url))
+
+        assertEquals(listOf(PcStatus(home.listed, PcState.REACHABLE)), pcs.refresh())
+        assertEquals(listOf(home.listed), pcs.list())
+    }
+
+    @Test
+    fun `PCs found on the network are matched to the paired PCs by id`() {
+        val home = pc("home")
+        pcs.pair(home.qr())
+        val stranger = pc("a PC the phone isn't paired with")
+        discovery.found = listOf(FoundPc(stranger.id, stranger.url))
+
+        assertEquals(mapOf("home" to PcState.REACHABLE), statesByName())
+        assertEquals(listOf(home.listed), pcs.list())
+    }
+
+    @Test
+    fun `another PC now at a PC's last address isn't mistaken for it`() {
+        val home = pc("home")
+        val laptop = pc("laptop", isHome = false)
+        home.others = listOf(laptop.listed)
+        pcs.pair(home.qr())
+        laptop.stop()
+        pc("desktop", isHome = false, port = laptop.port) // took the laptop's old address
+
+        assertEquals(PcState.NOT_REACHABLE, statesByName()["laptop"])
+    }
+
+    @Test
+    fun `a PC is still trusted when its certificate was made for an older address`() {
+        val home = pc("home", certifiedFor = listOf("192.0.2.10")) // signed by the paired CA, for another address
+
+        assertIs<PairingResult.Paired>(pcs.pair(home.qr()))
+        assertEquals(mapOf("home" to PcState.REACHABLE), statesByName())
+    }
+
+    @Test
+    fun `PCs remembered before PCs had ids keep working, and learn their ids`() {
+        val home = pc("home")
+        storage.put("pcs.list", """[{"name":"home","url":"${home.url}","home":true}]""")
+        pcs.pair(home.qr())
+        storage.put("pcs.list", """[{"name":"home","url":"${home.url}","home":true}]""")
+
+        assertEquals(listOf(PcStatus(home.listed, PcState.REACHABLE)), pcs.refresh())
+        assertEquals(listOf(home.listed), pcs.list())
     }
 }

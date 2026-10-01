@@ -40,6 +40,14 @@ class FakePhoneLibrary(var failWith: String? = null) : PhoneLibrary {
     }
 }
 
+/** The PCs found on the local network, as a fixed answer (or a failure). */
+class FakeDiscovery(var found: List<FoundPc> = emptyList(), var failWith: String? = null) : PcDiscovery {
+    override fun find(): List<FoundPc> {
+        failWith?.let { throw IllegalStateException(it) }
+        return found
+    }
+}
+
 class FakeNetwork(var online: Boolean = true) : NetworkState {
     override fun isOnline() = online
 }

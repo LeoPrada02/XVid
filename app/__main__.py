@@ -13,6 +13,7 @@ import threading
 
 import uvicorn
 
+from app import config, discovery
 from app.network import CERT_FILE, HTTP_PORT, HTTPS_PORT, KEY_FILE, cert_ip, https_ready, lan_ip
 
 if "--log" in sys.argv:
@@ -22,10 +23,12 @@ if "--log" in sys.argv:
 if https_ready():
     current, expected = lan_ip(), cert_ip()
     if expected and current != expected:
-        print(f"WARNING: this PC's Wi-Fi address changed from {expected} to {current}.")
-        print("         Phones point to the old one. Run setup.cmd again, then 'Add a phone' again.")
-        print("         To avoid this, reserve the address for this PC in your router.")
+        print(f"Note: this PC's Wi-Fi address changed from {expected} to {current}.")
+        print("      The phone app finds it by itself. XVid in a phone's browser needs setup.cmd again.")
     print(f"XVid on this PC: https://localhost:{HTTPS_PORT}  (use 'Add a phone' there)", flush=True)
+
+    settings = config.load()
+    discovery.start(settings["id"], settings["name"], HTTPS_PORT)  # so the phone app finds this PC at any address
 
     setup_server = uvicorn.Server(uvicorn.Config(
         "app.setup_app:setup_app", host="0.0.0.0", port=HTTP_PORT, log_level="warning"))

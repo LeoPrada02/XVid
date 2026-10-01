@@ -36,6 +36,12 @@ def lan_ip() -> str:
             return "127.0.0.1"
 
 
+def current_ip() -> str:
+    """This PC's address on the home network now, or the one its certificate was made for while offline."""
+    ip = lan_ip()
+    return (cert_ip() or ip) if ip.startswith("127.") else ip
+
+
 def cert_ip() -> str | None:
     return IP_FILE.read_text().strip() if IP_FILE.exists() else None
 

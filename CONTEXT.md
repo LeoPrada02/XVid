@@ -24,6 +24,10 @@ Linking the phone app to a PC by scanning that PC's **Add a phone** QR code. Aft
 The X account session a device uses to download sensitive or protected posts. The phone app and the PCs each have their own.
 _Avoid_: cookies (when meaning the concept)
 
+**PC id**:
+What identifies a PC to the phone app and the other PCs. A PC's address can change; the phone app finds each PC on the home network by its id.
+_Avoid_: address (when meaning which PC)
+
 **Reachable**:
 A PC is reachable when the phone is on the same network as that PC and XVid is running there.
 _Avoid_: online, on

@@ -3,6 +3,8 @@
 import base64
 import json
 
+import app.network
+
 from conftest import HTTPS_PORT, LOCAL, OTHER_PC, PC_IP, PC_URL, TOKEN, bearer, login
 
 LAPTOP_URL = "https://192.0.2.31:8443"
@@ -116,3 +118,57 @@ def test_announce_needs_login(phone_ready):
     res = phone_ready.client(OTHER_PC).post("/api/pcs/announce", json={"name": "laptop", "url": LAPTOP_URL})
     assert res.status_code == 401
     assert len(pcs(phone_ready)) == 1
+
+
+# Ids: a PC's address can change, so each PC has an id (the phone app finds PCs by it on the network).
+
+LAPTOP_ID = "id-of-the-laptop"
+
+
+def test_this_pc_lists_itself_with_an_id_that_stays_the_same(phone_ready):
+    [this] = pcs(phone_ready)
+    assert len(this["id"]) == 32
+    assert pcs(phone_ready)[0]["id"] == this["id"]
+    assert phone_ready.client(LOCAL).get("/api/me").json()["id"] == this["id"]
+
+
+def test_a_joined_pc_is_listed_with_its_id(phone_ready):
+    res = phone_ready.client(OTHER_PC).post("/api/join", json={
+        "code": join_code(phone_ready), "name": "laptop", "url": LAPTOP_URL, "id": LAPTOP_ID})
+    assert res.status_code == 200, res.text
+    assert res.json()["pcs"][0]["id"] == pcs(phone_ready)[0]["id"]  # the home PC's, for the joining PC
+    assert pcs(phone_ready)[1:] == [{"id": LAPTOP_ID, "name": "laptop", "url": LAPTOP_URL, "home": False}]
+
+
+def test_a_pc_that_announces_a_new_address_is_updated_not_added(phone_ready):
+    session = login(phone_ready.client())["session"]
+    other = phone_ready.client(OTHER_PC)
+    other.post("/api/pcs/announce", json={"name": "laptop", "url": LAPTOP_URL, "id": LAPTOP_ID}, headers=bearer(session))
+
+    new_url = "https://192.0.2.32:8443"
+    res = other.post("/api/pcs/announce", json={"name": "laptop", "url": new_url, "id": LAPTOP_ID}, headers=bearer(session))
+
+    assert res.json()[1:] == [{"id": LAPTOP_ID, "name": "laptop", "url": new_url, "home": False}]
+
+
+def test_a_pc_from_before_ids_gets_its_id_when_it_announces(phone_ready):
+    session = login(phone_ready.client())["session"]
+    other = phone_ready.client(OTHER_PC)
+    other.post("/api/pcs/announce", json={"name": "laptop", "url": LAPTOP_URL}, headers=bearer(session))
+
+    res = other.post("/api/pcs/announce", json={"name": "laptop", "url": LAPTOP_URL, "id": LAPTOP_ID}, headers=bearer(session))
+
+    assert res.json()[1:] == [{"id": LAPTOP_ID, "name": "laptop", "url": LAPTOP_URL, "home": False}]
+
+
+def test_announcing_this_pcs_own_id_is_ignored(phone_ready):
+    session = login(phone_ready.client())["session"]
+    own_id = pcs(phone_ready)[0]["id"]
+    res = phone_ready.client(OTHER_PC).post("/api/pcs/announce", json={
+        "name": "impostor", "url": LAPTOP_URL, "id": own_id}, headers=bearer(session))
+    assert len(res.json()) == 1 and res.json()[0]["name"] != "impostor"
+
+
+def test_this_pc_lists_its_current_address(phone_ready, monkeypatch):
+    monkeypatch.setattr(app.network, "lan_ip", lambda: "192.0.2.77")  # the router gave it a new address
+    assert pcs(phone_ready)[0]["url"] == f"https://192.0.2.77:{HTTPS_PORT}"

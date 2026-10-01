@@ -59,7 +59,7 @@ class XVidApp : Application() {
     }
 
     /** Pairing and the PCs the phone knows (see PcSectionsView). */
-    val knownPcs: KnownPcs by lazy { KnownPcs(storage) }
+    val knownPcs: KnownPcs by lazy { KnownPcs(storage, NsdPcDiscovery(this)) }
 
     /** The pairing going on or last done, for whichever main screen is showing (see PcSectionsView). */
     val pairing = PairingStatus()

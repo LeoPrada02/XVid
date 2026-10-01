@@ -113,6 +113,7 @@ def pc(tmp_path, monkeypatch):
         if hasattr(app, module):  # `from app import config` would otherwise reuse the old module
             delattr(app, module)
     main = importlib.import_module("app.main")
+    monkeypatch.setattr(sys.modules["app.network"], "lan_ip", lambda: PC_IP)  # this PC's address on the Wi-Fi
 
     clock = Clock()
     monkeypatch.setattr(main, "time", types.SimpleNamespace(time=clock.time, sleep=time.sleep))

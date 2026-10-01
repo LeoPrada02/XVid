@@ -52,7 +52,7 @@ your PCs and your Android phone, all on the home Wi-Fi. Windows PCs + Android (C
 ## Known limits
 
 - **Phone downloads need a PC that's on.** A browser can't run yt-dlp.
-- **Addresses must stay the same.** Reserve both PCs' IPs in the router. If one changes, run `setup.cmd` again there.
+- **Addresses can change for the phone app** (it finds PCs on the Wi-Fi by id), but not for XVid in a browser: there a changed address needs `setup.cmd` again.
 - **Phone setup needs one manual step:** installing the certificate in Android settings.
 - **No ffmpeg installed yet.** Some videos may come in slightly lower quality.
 - **Updating a PC:** in its XVid folder, `git pull`, then `start.cmd`. Each PC updates separately.

@@ -25,8 +25,10 @@ class FakeCa(name: String = "XVid test CA") {
 }
 
 /**
- * A PC's HTTP API on a fake HTTPS server: its certificate is signed by [signedBy], it hands out
- * [servesCa] from /api/pair/ca, redeems [code] once, and lists itself then [others] as its PC list.
+ * A PC's HTTP API on a fake HTTPS server: its certificate is signed by [signedBy] and made for
+ * [certifiedFor] (its address by default), it hands out [servesCa] from /api/pair/ca, redeems [code]
+ * once, and lists itself then [others] as its PC list. A PC that moved to a new address is a new
+ * FakePc with the same [id].
  */
 class FakePc(
     var name: String,
@@ -34,6 +36,9 @@ class FakePc(
     val isHome: Boolean = true,
     var servesCa: FakeCa = signedBy,
     var code: String = "one-time-code",
+    val id: String = "id-of-$name",
+    certifiedFor: List<String>? = null,
+    port: Int = 0,
 ) {
     val server = MockWebServer()
     val requests = CopyOnWriteArrayList<RecordedRequest>()
@@ -41,10 +46,9 @@ class FakePc(
     var session = SESSION // the session this PC accepts (it changes if the PC gets a new token)
 
     init {
-        server.start()
+        server.start(port)
         val leaf = HeldCertificate.Builder()
-            .addSubjectAlternativeName(server.hostName)
-            .addSubjectAlternativeName("localhost")
+            .apply { (certifiedFor ?: listOf(server.hostName, "localhost")).forEach(::addSubjectAlternativeName) }
             .signedBy(signedBy.held)
             .build()
         server.useHttps(HandshakeCertificates.Builder().heldCertificate(leaf).build().sslSocketFactory(), false)
@@ -56,10 +60,12 @@ class FakePc(
         }
     }
 
+    val port: Int get() = server.port
+
     val url: String get() = server.url("/").toString().trimEnd('/')
 
     /** This PC as a PC list shows it. */
-    val listed: Pc get() = Pc(name, url, isHome)
+    val listed: Pc get() = Pc(id, name, url, isHome)
 
     /** The text of the QR code this PC's Add a phone dialog shows. */
     fun qr(fingerprint: String = servesCa.fingerprint, code: String = this.code) =
@@ -86,7 +92,7 @@ class FakePc(
         else -> MockResponse().setResponseCode(404)
     }
 
-    private fun pcJson(pc: Pc) = buildJsonObject { put("name", pc.name); put("url", pc.url); put("home", pc.home) }
+    private fun pcJson(pc: Pc) = buildJsonObject { put("id", pc.id); put("name", pc.name); put("url", pc.url); put("home", pc.home) }
 
     private fun json(body: String, status: Int = 200) =
         MockResponse().setResponseCode(status).setHeader("Content-Type", "application/json").setBody(body)

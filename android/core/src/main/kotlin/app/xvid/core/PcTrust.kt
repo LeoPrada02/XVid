@@ -24,7 +24,12 @@ internal object PcTrust {
     fun parsePem(pem: String): X509Certificate =
         CertificateFactory.getInstance("X.509").generateCertificate(pem.byteInputStream()) as X509Certificate
 
-    /** A client that trusts only [ca]: the normal certificate and hostname checks, with [ca] as the only root. */
+    /**
+     * A client that trusts only [ca]: the normal certificate checks, with [ca] as the only root. Any
+     * certificate [ca] signed is accepted whatever address it was made for, since a PC's address can
+     * change after its certificate was made, and only the household's own PCs have certificates from
+     * [ca] (they share its login too, so telling them apart by certificate would protect nothing).
+     */
     fun pinnedTo(ca: X509Certificate, base: OkHttpClient): OkHttpClient {
         val keyStore = KeyStore.getInstance(KeyStore.getDefaultType()).apply {
             load(null, null)
@@ -34,7 +39,10 @@ internal object PcTrust {
             .apply { init(keyStore) }
             .trustManagers.filterIsInstance<X509TrustManager>().single()
         val context = SSLContext.getInstance("TLS").apply { init(null, arrayOf(trustManager), null) }
-        return base.newBuilder().sslSocketFactory(context.socketFactory, trustManager).build()
+        return base.newBuilder()
+            .sslSocketFactory(context.socketFactory, trustManager)
+            .hostnameVerifier { _, _ -> true }
+            .build()
     }
 
     /**

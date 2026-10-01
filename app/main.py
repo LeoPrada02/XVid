@@ -34,7 +34,7 @@ from pydantic import BaseModel
 from yt_dlp.networking import Request as YdlRequest
 
 from app import config
-from app.network import CA_FILE, CERT_FILE, HTTP_PORT, HTTPS_PORT, TOKEN_FILE, cert_ip, https_ready
+from app.network import CA_FILE, CERT_FILE, HTTP_PORT, HTTPS_PORT, TOKEN_FILE, cert_ip, current_ip, https_ready
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
@@ -608,7 +608,7 @@ def ping() -> dict:
 def me(request: Request) -> dict:
     return {"ok": True, "cookies": bool(COOKIES_BROWSER or COOKIES_FILE), "ffmpeg": HAS_FFMPEG,
             "library": str(LIBRARY), "local": trusted_local(request), "phone_ready": https_ready(),
-            "name": CONFIG["name"], "url": config.self_url(), "is_home": not CONFIG["home"],
+            "id": CONFIG["id"], "name": CONFIG["name"], "url": config.self_url(), "is_home": not CONFIG["home"],
             "session": SESSION, "media_key": MEDIA_KEY}
 
 
@@ -620,7 +620,7 @@ join_codes: dict[str, float] = {}
 
 
 def known_pcs() -> list[dict]:
-    this = {"name": CONFIG["name"], "url": config.self_url(), "home": not CONFIG["home"]}
+    this = {"id": CONFIG["id"], "name": CONFIG["name"], "url": config.self_url(), "home": not CONFIG["home"]}
     return [this] + [{**p, "home": p["url"] == CONFIG["home"]} for p in CONFIG["peers"]]
 
 
@@ -639,7 +639,7 @@ def create_join_code(request: Request) -> dict:
         raise HTTPException(409, "Add PCs from the home PC")
     if not https_ready():
         raise HTTPException(409, "Phone access isn't set up yet. Run setup.cmd on this PC first.")
-    payload = {"h": cert_ip(), "p": HTTPS_PORT, "c": new_code(join_codes), "f": fingerprint(CERT_FILE)}
+    payload = {"h": current_ip(), "p": HTTPS_PORT, "c": new_code(join_codes), "f": fingerprint(CERT_FILE)}
     code = "XVID-" + base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
     return {"code": code, "expires_in": PAIR_TTL}
 
@@ -648,6 +648,7 @@ class JoinIn(BaseModel):
     code: str
     name: str
     url: str
+    id: str | None = None  # None from PCs set up before PCs had ids
 
 
 @app.post("/api/join")
@@ -658,7 +659,7 @@ def join(body: JoinIn, request: Request) -> dict:
         login_failures[ip].append(time.time())
         raise HTTPException(401, "This code expired or was already used. Create a new one with 'Add a PC'.")
     root = config.caroot()
-    config.upsert_peer(CONFIG, body.name, body.url)
+    config.upsert_peer(CONFIG, body.name, body.url, body.id)
     config.save(CONFIG)
     return {"token": TOKEN, "home": config.self_url(), "pcs": known_pcs(),
             "ca_cert": (root / "rootCA.pem").read_text(), "ca_key": (root / "rootCA-key.pem").read_text()}
@@ -667,12 +668,13 @@ def join(body: JoinIn, request: Request) -> dict:
 class AnnounceIn(BaseModel):
     name: str
     url: str
+    id: str | None = None
 
 
 @app.post("/api/pcs/announce", dependencies=[Depends(require_auth)])
 def announce(body: AnnounceIn) -> list[dict]:
     """A joined PC reports its current name and address (they can change); returns every PC."""
-    config.upsert_peer(CONFIG, body.name, body.url)
+    config.upsert_peer(CONFIG, body.name, body.url, body.id)
     config.save(CONFIG)
     return known_pcs()
 
@@ -680,14 +682,16 @@ def announce(body: AnnounceIn) -> list[dict]:
 def announce_to_home() -> None:
     """On a joined PC: keep the home PC up to date with this PC's address, and learn about other PCs."""
     context = ssl.create_default_context(cafile=str(CA_FILE))
-    body = json.dumps({"name": CONFIG["name"], "url": config.self_url()}).encode()
+    # Any certificate the shared authority signed is the home PC's, even one made for its old address.
+    context.check_hostname = False
     while True:
+        body = json.dumps({"id": CONFIG["id"], "name": CONFIG["name"], "url": config.self_url()}).encode()
         try:
             req = urllib.request.Request(f"{CONFIG['home']}/api/pcs/announce", data=body, method="POST", headers={
                 "Content-Type": "application/json", "Authorization": f"Bearer {SESSION}"})
             with urllib.request.urlopen(req, context=context, timeout=10) as res:
                 for pc in json.load(res):
-                    config.upsert_peer(CONFIG, pc["name"], pc["url"])
+                    config.upsert_peer(CONFIG, pc["name"], pc["url"], pc.get("id"))
             config.save(CONFIG)
             time.sleep(600)
         except Exception:

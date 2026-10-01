@@ -46,6 +46,18 @@ interface NetworkState {
     fun isOnline(): Boolean
 }
 
+/** Finds the PCs announcing themselves on the local network (DNS-SD service `_xvid._tcp`). */
+interface PcDiscovery {
+    /**
+     * The PCs found in a short search, at their current addresses. Empty on another network.
+     * May throw when it can't search (the core then uses the last known addresses).
+     */
+    fun find(): List<FoundPc>
+}
+
+/** A PC found on the local network: its [Pc.id] and the HTTPS address it's at now. */
+data class FoundPc(val id: String, val url: String)
+
 /** Small persistent key-value storage private to the phone app. */
 interface Storage {
     fun get(key: String): String?
