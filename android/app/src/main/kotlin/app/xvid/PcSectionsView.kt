@@ -113,7 +113,11 @@ class PcSectionsView(context: Context) : LinearLayout(context) {
                     text = if (status.pc.home) activity.getString(R.string.pcs_home, status.pc.name) else status.pc.name
                     textSize = 15f
                 }
-                addView(name)
+                // See all stays by the name, so it's there with the library folded too.
+                addView(activity.row {
+                    addView(name, fill())
+                    if (reachable) addView(activity.button(R.string.library_see_all, ButtonStyle.LINK) { PcLibraryActivity.open(activity, status.pc) })
+                })
                 addView(activity.text(TextStyle.SMALL).apply {
                     setText(when {
                         checking -> R.string.pcs_checking
