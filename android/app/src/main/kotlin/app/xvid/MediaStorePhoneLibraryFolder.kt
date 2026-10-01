@@ -79,14 +79,21 @@ class FrameThumbnailMaker(private val context: Context) : ThumbnailMaker {
         val retriever = MediaMetadataRetriever()
         try {
             retriever.setDataSource(context, Uri.parse(video.id))
-            val frame = frameAt(retriever, FRAME_AT_US) ?: frameAt(retriever, 0) ?: error("No frame in ${video.name}")
-            val scaled = scaleDown(frame)
-            target.outputStream().use { scaled.compress(Bitmap.CompressFormat.JPEG, 80, it) }
-            if (scaled !== frame) scaled.recycle()
-            frame.recycle()
+            Frames.write(retriever, target, video.name)
         } finally {
             retriever.release()
         }
+    }
+}
+
+/** A thumbnail from a video a [MediaMetadataRetriever] has open: a frame a second in, at most 320px. */
+internal object Frames {
+    fun write(retriever: MediaMetadataRetriever, target: File, videoName: String) {
+        val frame = frameAt(retriever, FRAME_AT_US) ?: frameAt(retriever, 0) ?: error("No frame in $videoName")
+        val scaled = scaleDown(frame)
+        target.outputStream().use { scaled.compress(Bitmap.CompressFormat.JPEG, 80, it) }
+        if (scaled !== frame) scaled.recycle()
+        frame.recycle()
     }
 
     private fun frameAt(retriever: MediaMetadataRetriever, timeUs: Long): Bitmap? =
@@ -103,8 +110,6 @@ class FrameThumbnailMaker(private val context: Context) : ThumbnailMaker {
         return Bitmap.createScaledBitmap(frame, (frame.width * scale).toInt().coerceAtLeast(1), (frame.height * scale).toInt().coerceAtLeast(1), true)
     }
 
-    private companion object {
-        const val SIZE = 320
-        const val FRAME_AT_US = 1_000_000L
-    }
+    private const val SIZE = 320
+    private const val FRAME_AT_US = 1_000_000L
 }

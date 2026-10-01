@@ -7,10 +7,11 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.annotation.StringRes
 import app.xvid.core.PhoneDownloadOutcome
 import app.xvid.core.Update
 
-/** The notifications a phone download shows: progress, then Saved, failed or needs an X login. */
+/** The notifications a phone download or Save to phone shows: progress, then Saved, failed or needs an X login. */
 object Notifications {
     private const val CHANNEL_PROGRESS = "downloads"
     private const val CHANNEL_RESULTS = "results"
@@ -29,18 +30,19 @@ object Notifications {
         )
     }
 
-    /** [percent] null means the progress isn't known yet. */
-    fun progress(context: Context, percent: Int?): Notification =
+    /** [percent] null means the progress isn't known yet. [title] says what's going on. */
+    fun progress(context: Context, percent: Int?, @StringRes title: Int = R.string.notif_downloading): Notification =
         Notification.Builder(context, CHANNEL_PROGRESS)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(context.getString(R.string.notif_downloading))
+            .setContentTitle(context.getString(title))
             .setContentText(percent?.let { "$it%" } ?: context.getString(R.string.notif_starting))
             .setProgress(100, percent ?: 0, percent == null)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .build()
 
-    fun result(context: Context, outcome: PhoneDownloadOutcome): Notification {
+    /** [failedTitle] heads a failure: a phone download's, or Save to phone's. */
+    fun result(context: Context, outcome: PhoneDownloadOutcome, @StringRes failedTitle: Int = R.string.notif_failed): Notification {
         val builder = Notification.Builder(context, CHANNEL_RESULTS)
             .setSmallIcon(R.drawable.ic_notification)
             .setAutoCancel(true)
@@ -57,7 +59,7 @@ object Notifications {
                     .setContentIntent(playIntent(context, Uri.parse(first.id)))
             }
             is PhoneDownloadOutcome.Failed ->
-                builder.setContentTitle(context.getString(R.string.notif_failed))
+                builder.setContentTitle(context.getString(failedTitle))
                     .setContentText(outcome.reason)
                     .setStyle(Notification.BigTextStyle().bigText(outcome.reason))
             // Tapping opens the login page; the download retries by itself after logging in.

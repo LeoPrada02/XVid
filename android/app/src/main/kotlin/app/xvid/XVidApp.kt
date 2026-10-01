@@ -5,6 +5,7 @@ import android.os.Handler
 import android.os.Looper
 import app.xvid.core.KnownPcs
 import app.xvid.core.MaximumQualitySetting
+import app.xvid.core.PcLibraries
 import app.xvid.core.PhoneDownloads
 import app.xvid.core.PhoneLibraryBrowser
 import app.xvid.core.RecentDownloads
@@ -60,6 +61,11 @@ class XVidApp : Application() {
 
     /** Pairing and the PCs the phone knows (see PcSectionsView). */
     val knownPcs: KnownPcs by lazy { KnownPcs(storage, NsdPcDiscovery(this)) }
+
+    /** The known PCs' PC libraries: browse, stream, Save to phone and delete (see PcLibraryActivity). */
+    val pcLibraries: PcLibraries by lazy {
+        PcLibraries(knownPcs, MediaStorePhoneLibrary(this), RangeFrameGrabber(), File(cacheDir, "pc-thumbnails"))
+    }
 
     /** The pairing going on or last done, for whichever main screen is showing (see PcSectionsView). */
     val pairing = PairingStatus()

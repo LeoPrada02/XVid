@@ -10,6 +10,7 @@ import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
+import okhttp3.mockwebserver.SocketPolicy
 import okhttp3.tls.HandshakeCertificates
 import okhttp3.tls.HeldCertificate
 import java.net.URLEncoder
@@ -45,6 +46,18 @@ class FakePc(
     var others: List<Pc> = emptyList()
     var session = SESSION // the session this PC accepts (it changes if the PC gets a new token)
 
+    /** The PC library, newest first: file name -> contents. */
+    val library = linkedMapOf<String, String>()
+
+    /** Thumbnails (JPEG contents) of the PC library videos that have one, by video name. */
+    val thumbnails = mutableMapOf<String, String>()
+
+    /** Set to drop the connection halfway through sending a video. */
+    var dropMediaDownloads = false
+
+    /** The thumbnails the phone sent for videos without one: video name -> the form it posted. */
+    val uploadedThumbnails = mutableMapOf<String, String>()
+
     init {
         server.start(port)
         val leaf = HeldCertificate.Builder()
@@ -75,7 +88,55 @@ class FakePc(
 
     fun stop() = server.shutdown()
 
-    private fun answer(request: RecordedRequest): MockResponse = when (request.path) {
+    private fun answer(request: RecordedRequest): MockResponse {
+        val segments = request.requestUrl!!.pathSegments
+        val loggedIn = request.getHeader("Authorization") == "Bearer $session"
+        return when {
+            segments.size == 2 && segments[0] in listOf("media", "thumb") || segments.firstOrNull() == "api" && segments.getOrNull(1) == "videos" ->
+                if (loggedIn) answerLibrary(request, segments) else json("""{"detail":"Not logged in"}""", 401)
+            else -> answerPairing(request)
+        }
+    }
+
+    private fun answerLibrary(request: RecordedRequest, segments: List<String>): MockResponse {
+        val name = segments.getOrNull(segments.lastIndex)
+        return when {
+            request.method == "GET" && segments == listOf("api", "videos") ->
+                json(JsonArray(library.keys.mapIndexed { i, video -> videoJson(video, addedSecondsAgo = i * 60) }).toString())
+            request.method == "POST" && segments.size == 4 && segments[3] == "thumb" && segments[2] in library -> {
+                uploadedThumbnails[segments[2]] = request.body.readUtf8()
+                thumbnails[segments[2]] = "the phone's thumbnail"
+                json(videoJson(segments[2], 0).toString())
+            }
+            request.method == "DELETE" && segments.size == 3 && name in library -> {
+                library.remove(name)
+                thumbnails.remove(name)
+                json("""{"ok":true}""")
+            }
+            request.method == "GET" && segments[0] == "media" && name in library -> {
+                val body = library.getValue(name!!)
+                MockResponse().setBody(body).apply {
+                    if (dropMediaDownloads) socketPolicy = SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY
+                }
+            }
+            request.method == "GET" && segments[0] == "thumb" ->
+                thumbnails.entries.firstOrNull { thumbName(it.key) == name }?.let { MockResponse().setBody(it.value) }
+                    ?: MockResponse().setResponseCode(404)
+            else -> json("""{"detail":"Not found"}""", 404)
+        }
+    }
+
+    private fun videoJson(name: String, addedSecondsAgo: Int) = buildJsonObject {
+        put("name", name)
+        put("title", name.substringBeforeLast('.'))
+        put("uploader", "Someone")
+        put("duration", 12.5)
+        put("size", library.getValue(name).length)
+        put("added", ADDED_NEWEST - addedSecondsAgo + 0.25)
+        if (name in thumbnails) put("thumb", thumbName(name)) else put("thumb", null as String?)
+    }
+
+    private fun answerPairing(request: RecordedRequest): MockResponse = when (request.path) {
         "/api/pair/ca" -> MockResponse().setBody(servesCa.pem)
         "/api/pair/redeem" -> {
             val given = Json.parseToJsonElement(request.body.readUtf8()).jsonObject["code"]?.jsonPrimitive?.content
@@ -100,6 +161,11 @@ class FakePc(
     companion object {
         const val SESSION = "session-for-every-joined-pc"
         const val MEDIA_KEY = "media-key"
+
+        /** When the newest PC library video was added, in seconds since the epoch, as the PC lists it. */
+        const val ADDED_NEWEST = 1_700_000_000
+
+        fun thumbName(video: String) = video.substringBeforeLast('.') + ".jpg"
 
         private fun enc(text: String) = URLEncoder.encode(text, "UTF-8")
     }

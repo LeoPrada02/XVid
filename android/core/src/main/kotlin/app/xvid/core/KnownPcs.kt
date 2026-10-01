@@ -84,6 +84,9 @@ class KnownPcs(private val storage: Storage, private val discovery: PcDiscovery)
     /** The known PCs, the home PC first as its list shows it. */
     fun list(): List<Pc> = synchronized(lock) { storage.get(LIST)?.let(::parsePcs) ?: emptyList() }
 
+    /** The known PC with [id], or null when the phone doesn't know it (anymore). */
+    fun find(id: String?): Pc? = list().firstOrNull { it.id == id }
+
     /** For talking to the PCs, or null before pairing. */
     fun connection(): PcConnection? {
         val caPem = storage.get(CA) ?: return null

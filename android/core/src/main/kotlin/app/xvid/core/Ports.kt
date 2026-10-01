@@ -1,6 +1,7 @@
 package app.xvid.core
 
 import java.io.File
+import java.io.OutputStream
 
 // The small interfaces the core module depends on. The Android app provides
 // the real implementations; tests provide fakes.
@@ -34,8 +35,14 @@ class EngineError(message: String) : Exception(message)
 
 /** The phone library folder (Movies/XVid), visible in the gallery. */
 interface PhoneLibrary {
+    /**
+     * Adds a video named [name] to the phone library, its contents written by [content]. If
+     * [content] throws, nothing is added and the exception is rethrown.
+     */
+    fun write(name: String, content: (OutputStream) -> Unit): PhoneVideo
+
     /** Copies [file] into the phone library as [name]. */
-    fun add(file: File, name: String): PhoneVideo
+    fun add(file: File, name: String): PhoneVideo = write(name) { out -> file.inputStream().use { it.copyTo(out) } }
 }
 
 /** A video in the phone library. [id] is whatever the platform uses to open it. */

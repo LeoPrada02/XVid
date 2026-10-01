@@ -13,7 +13,8 @@ import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 
 /**
- * The PCs part of the main screen: one section per known PC, shown as reachable or not, and
+ * The PCs part of the main screen: one section per known PC, shown as reachable or not (with
+ * its PC library when it is, see [PcLibraryPreview]), and
  * "Pair with a PC", which scans the QR code in step 2 of the PC's Add a phone dialog.
  *
  * The scanner is Google's code scanner (Play services): it needs no camera permission, since the
@@ -115,6 +116,7 @@ class PcSectionsView(context: Context) : LinearLayout(context) {
                     if (!checking && status.state == PcState.REACHABLE) setTextColor(activity.color(R.color.ok))
                     if (!checking && status.state == PcState.PAIR_AGAIN) setTextColor(activity.color(R.color.danger))
                 }, activity.spaced(4))
+                if (!checking && status.state == PcState.REACHABLE) addView(PcLibraryPreview(activity, status.pc), activity.spaced(8))
             }, activity.spaced())
         }
     }

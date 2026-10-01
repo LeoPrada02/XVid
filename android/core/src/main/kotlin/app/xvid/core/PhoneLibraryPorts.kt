@@ -25,6 +25,15 @@ interface PhoneLibraryFolder {
  */
 data class PhoneLibraryVideo(val id: String, val name: String, val addedAt: Long, val sizeBytes: Long)
 
+/** Makes a thumbnail picture of a video in a PC library, reading only the parts of it it needs. */
+interface PcFrameGrabber {
+    /**
+     * Writes a small JPEG of a frame of the video [stream] plays to [target], and returns the
+     * video's length in seconds when it's known. Throws when it can't.
+     */
+    fun grab(stream: PcStream, target: File): Double?
+}
+
 /** Makes a thumbnail picture of a video. */
 interface ThumbnailMaker {
     /** Writes a small JPEG of a frame of [video] to [target]. Throws when it can't. */

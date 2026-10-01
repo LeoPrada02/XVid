@@ -1,6 +1,8 @@
 package app.xvid.core
 
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.OutputStream
 
 /**
  * Stands in for yt-dlp. Each call writes [videosPerPost] files into the output
@@ -29,14 +31,27 @@ class FakeEngine(
     }
 }
 
-/** The phone library folder, kept in memory: name -> file contents. */
+/** The phone library folder, kept in memory: name -> file contents. A video is only there once fully written. */
 class FakePhoneLibrary(var failWith: String? = null) : PhoneLibrary {
     val videos = linkedMapOf<String, String>()
 
-    override fun add(file: File, name: String): PhoneVideo {
+    override fun write(name: String, content: (OutputStream) -> Unit): PhoneVideo {
         failWith?.let { throw IllegalStateException(it) }
-        videos[name] = file.readText()
+        val bytes = ByteArrayOutputStream().also(content)
+        videos[name] = bytes.toString(Charsets.UTF_8)
         return PhoneVideo(id = "video:$name", name = name)
+    }
+}
+
+/** Grabs a "frame" of a PC library video: writes its address to the target, or throws [failWith]. */
+class FakeFrameGrabber(var failWith: String? = null, var lengthSeconds: Double? = 42.0) : PcFrameGrabber {
+    val grabbed = mutableListOf<String>()
+
+    override fun grab(stream: PcStream, target: File): Double? {
+        failWith?.let { throw IllegalStateException(it) }
+        grabbed += stream.url
+        target.writeText("frame of ${stream.url}")
+        return lengthSeconds
     }
 }
 

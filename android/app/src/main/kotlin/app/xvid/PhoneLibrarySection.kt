@@ -1,7 +1,6 @@
 package app.xvid
 
 import android.content.Context
-import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import app.xvid.core.PhoneLibraryVideo
@@ -46,18 +45,7 @@ class PhoneLibrarySection(context: Context) : LinearLayout(context) {
             resources.getQuantityString(R.plurals.library_count, videos.size, videos.size)
         }
         grid.removeAllViews()
-        // Two tiles a row, like the web app's grid on a phone.
-        for (pair in videos.take(PREVIEW).chunked(2)) {
-            grid.addView(context.row {
-                gravity = Gravity.TOP
-                pair.forEachIndexed { i, video ->
-                    addView(VideoTiles.create(context).also { VideoTiles.bind(it, video) }, fill().apply {
-                        if (i == 1) marginStart = context.dp(12)
-                    })
-                }
-                if (pair.size == 1) addView(View(context), fill().apply { marginStart = context.dp(12) })
-            }, context.spaced(12))
-        }
+        VideoTiles.addInPairs(grid, videos.take(PREVIEW).map { video -> VideoTiles.create(context).also { VideoTiles.bind(it, video) } })
     }
 
     private companion object {

@@ -196,6 +196,13 @@ one PC covers every PC that joined it: the app learns them from any reachable PC
 The app finds the PCs on the Wi-Fi by their ids (see *Finding PCs* above), so a PC's new address
 needs no new pairing.
 
+**PC libraries on the phone:** each reachable PC's section on the main screen shows its newest
+videos, and **See all** opens its whole PC library. Tapping a video streams it from the PC inside
+the app (other video players wouldn't trust the PCs' certificate authority). Under it, **Save to
+phone** copies it into `Movies/XVid` with a progress notification, and **Delete** removes it from
+that PC library after asking first. Videos the PC has no thumbnail for (uploads, files dropped
+into its folder) get one from a frame the app reads over the network, and the PC keeps it too.
+
 **X login on the phone:** the phone app has its own X login, separate from the PCs'
 `cookies.txt`. In the app's Settings, tap **Log in to X** and log in with your username and
 password (Google sign-in doesn't work inside the app). The session cookies stay in the app's

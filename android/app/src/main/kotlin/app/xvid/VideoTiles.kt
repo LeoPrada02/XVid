@@ -10,19 +10,23 @@ import android.text.TextUtils
 import android.text.format.DateUtils
 import android.text.format.Formatter
 import android.util.LruCache
+import android.view.Gravity
 import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import app.xvid.core.Pc
+import app.xvid.core.PcVideo
 import app.xvid.core.PhoneLibraryVideo
 import app.xvid.core.VideoTypes
+import java.io.File
 import java.util.concurrent.Executors
 
 /**
- * Phone library videos as tiles like the web app's library grid: a 16:9 thumbnail, the
- * name on up to two lines and when it was saved. Thumbnails load in the background and
- * are cached for the whole app, so the main screen and the library screen share them.
+ * Phone library and PC library videos as tiles like the web app's library grid: a 16:9
+ * thumbnail, the name on up to two lines and when it was saved. Thumbnails load in the
+ * background and are cached for the whole app, so the main screen and the library screens share them.
  */
 object VideoTiles {
     private val loader = Executors.newSingleThreadExecutor { Thread(it, "thumbnails").apply { isDaemon = true } }
@@ -52,35 +56,71 @@ object VideoTiles {
         })
     }
 
+    /** A phone library video: tapping plays it on the phone. */
     fun bind(tile: LinearLayout, video: PhoneLibraryVideo) {
+        val browser = (tile.context.applicationContext as XVidApp).phoneLibrary
+        bind(tile, video.name, video.addedAt, video.sizeBytes, key = video.id, thumbnail = { browser.thumbnail(video) }) {
+            play(tile.context, video)
+        }
+    }
+
+    /** A video in [pc]'s PC library: tapping streams it from the PC. */
+    fun bind(tile: LinearLayout, pc: Pc, video: PcVideo) {
+        val libraries = (tile.context.applicationContext as XVidApp).pcLibraries
+        val key = "${pc.id}/${video.name}/${video.addedAt}"
+        bind(tile, video.title, video.addedAt, video.sizeBytes, key, thumbnail = { libraries.thumbnail(pc, video) }) {
+            PcVideoActivity.open(tile.context, pc, video)
+        }
+    }
+
+    private fun bind(
+        tile: LinearLayout,
+        title: String,
+        addedAt: Long,
+        sizeBytes: Long,
+        key: String,
+        thumbnail: () -> File?,
+        onClick: () -> Unit,
+    ) {
         val context = tile.context
         val image = tile.getChildAt(0) as ImageView
         val body = tile.getChildAt(1) as LinearLayout
-        (body.getChildAt(0) as TextView).text = video.name
-        (body.getChildAt(1) as TextView).text = context.getString(
-            R.string.library_tile_meta,
-            DateUtils.getRelativeTimeSpanString(
-                video.addedAt,
-                System.currentTimeMillis(),
-                DateUtils.MINUTE_IN_MILLIS,
-                DateUtils.FORMAT_ABBREV_RELATIVE,
-            ),
-            Formatter.formatShortFileSize(context, video.sizeBytes),
-        )
-        image.contentDescription = video.name
-        tile.setOnClickListener { play(context, video) }
-        image.tag = video.id
-        cache.get(video.id)?.let {
+        (body.getChildAt(0) as TextView).text = title
+        (body.getChildAt(1) as TextView).text = meta(context, addedAt, sizeBytes)
+        image.contentDescription = title
+        tile.setOnClickListener { onClick() }
+        image.tag = key
+        cache.get(key)?.let {
             image.setImageBitmap(it)
             return
         }
         image.setImageDrawable(null)
-        val browser = (context.applicationContext as XVidApp).phoneLibrary
         loader.execute {
-            val bitmap = runCatching { browser.thumbnail(video)?.let { BitmapFactory.decodeFile(it.path) } }.getOrNull()
+            val bitmap = runCatching { thumbnail()?.let { BitmapFactory.decodeFile(it.path) } }.getOrNull()
                 ?: return@execute
-            cache.put(video.id, bitmap)
-            image.post { if (image.tag == video.id) image.setImageBitmap(bitmap) }
+            cache.put(key, bitmap)
+            image.post { if (image.tag == key) image.setImageBitmap(bitmap) }
+        }
+    }
+
+    /** When a video was saved and its size, like "5 min. ago · 12 MB". */
+    fun meta(context: Context, addedAt: Long, sizeBytes: Long): String = context.getString(
+        R.string.library_tile_meta,
+        DateUtils.getRelativeTimeSpanString(addedAt, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_ABBREV_RELATIVE),
+        Formatter.formatShortFileSize(context, sizeBytes),
+    )
+
+    /** Adds [tiles] to [grid] two a row, like the web app's grid on a phone. */
+    fun addInPairs(grid: LinearLayout, tiles: List<View>) {
+        val context = grid.context
+        for (pair in tiles.chunked(2)) {
+            grid.addView(context.row {
+                gravity = Gravity.TOP
+                pair.forEachIndexed { i, tile ->
+                    addView(tile, fill().apply { if (i == 1) marginStart = context.dp(12) })
+                }
+                if (pair.size == 1) addView(View(context), fill().apply { marginStart = context.dp(12) })
+            }, context.spaced(12))
         }
     }
 

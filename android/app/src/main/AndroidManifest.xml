@@ -57,6 +57,16 @@
             android:name=".PhoneLibraryActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".PcLibraryActivity"
+            android:exported="false" />
+
+        <!-- Kept through rotation, so the video keeps playing. -->
+        <activity
+            android:name=".PcVideoActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
+            android:exported="false" />
+
         <!-- Kept through rotation: recreating it would clear a login in the middle of being typed. -->
         <activity
             android:name=".XLoginActivity"

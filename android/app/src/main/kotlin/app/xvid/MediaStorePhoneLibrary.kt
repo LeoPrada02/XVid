@@ -13,6 +13,7 @@ import app.xvid.core.PhoneLibrary
 import app.xvid.core.PhoneVideo
 import app.xvid.core.VideoTypes
 import java.io.File
+import java.io.OutputStream
 
 /**
  * The phone library folder, Movies/XVid, written through the media store so
@@ -20,13 +21,14 @@ import java.io.File
  * video's content:// URI.
  */
 class MediaStorePhoneLibrary(private val context: Context) : PhoneLibrary {
-    override fun add(file: File, name: String): PhoneVideo {
-        val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) addScoped(file, name) else addLegacy(file, name)
+    override fun write(name: String, content: (OutputStream) -> Unit): PhoneVideo {
+        val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) addScoped(name, content) else addLegacy(name, content)
         return PhoneVideo(id = uri.toString(), name = name)
     }
 
+    /** Written as a pending entry, so the gallery only shows it once it's complete. */
     @TargetApi(Build.VERSION_CODES.Q)
-    private fun addScoped(file: File, name: String): Uri {
+    private fun addScoped(name: String, content: (OutputStream) -> Unit): Uri {
         val resolver = context.contentResolver
         val values = ContentValues().apply {
             put(MediaStore.Video.Media.DISPLAY_NAME, name)
@@ -39,7 +41,7 @@ class MediaStorePhoneLibrary(private val context: Context) : PhoneLibrary {
         try {
             resolver.openOutputStream(uri).use { out ->
                 checkNotNull(out) { "Couldn't write to the phone library" }
-                file.inputStream().use { it.copyTo(out) }
+                content(out)
             }
             resolver.update(uri, ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }, null, null)
             return uri
@@ -51,14 +53,19 @@ class MediaStorePhoneLibrary(private val context: Context) : PhoneLibrary {
 
     /** Android 8 and 9: write the file ourselves, then register it with the media store. */
     @Suppress("DEPRECATION")
-    private fun addLegacy(file: File, name: String): Uri {
+    private fun addLegacy(name: String, content: (OutputStream) -> Unit): Uri {
         check(context.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
             "XVid needs storage access. Open XVid to allow it"
         }
         val folder = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES), FOLDER)
         folder.mkdirs()
         val target = uniqueFile(folder, name)
-        file.copyTo(target)
+        try {
+            target.outputStream().use(content)
+        } catch (e: Exception) {
+            target.delete()
+            throw e
+        }
         val values = ContentValues().apply {
             put(MediaStore.Video.Media.DATA, target.absolutePath)
             put(MediaStore.Video.Media.DISPLAY_NAME, target.name)
