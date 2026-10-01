@@ -73,10 +73,11 @@ class MainActivity : Activity() {
                 addView(text(TextStyle.SMALL, getString(R.string.main_version, BuildConfig.VERSION_NAME)), spaced(28))
                 addView(updateLink, spaced(4))
             }
-        // Pulling down from the top reloads the phone library, the PCs and the queue.
+        // Pulling down from the top reloads the phone library, the PCs and the queue, and checks for a newer app.
         setContentView(pullToReload(content) { done ->
             phoneLibrary.reload()
             queue.reload()
+            showNewerRelease()
             pcSections.reload(done)
         })
         requestMissingPermissions()
@@ -123,7 +124,7 @@ class MainActivity : Activity() {
         }
     }
 
-    /** Checks GitHub Releases in the background and, if there's a newer version, links to it. */
+    /** Checks GitHub Releases in the background and, if there's a newer version, links to it (as the screen opens and on each pull to reload). A failed check leaves the link as it was. */
     private fun showNewerRelease() {
         val check = (application as XVidApp).updateCheck ?: return
         Thread {
