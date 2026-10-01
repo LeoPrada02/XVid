@@ -63,7 +63,11 @@ class PhoneLibraryActivity : Activity() {
             column {
                 setBackgroundColor(color(R.color.bg))
                 setPadding(dp(16), dp(24), dp(16), 0)
-                addView(text(TextStyle.TITLE, R.string.library_title))
+                addView(row {
+                    addView(text(TextStyle.TITLE, R.string.library_title), fill())
+                    addView(button(R.string.upload_from_gallery, ButtonStyle.SECONDARY, small = true) { UploadActivity.pickFromGallery(this@PhoneLibraryActivity) })
+                })
+                addView(text(TextStyle.SMALL, R.string.library_hold_to_upload), spaced(4))
                 addView(status, spaced(4))
                 addView(grid, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
             },

@@ -66,6 +66,14 @@
             android:name=".QueueActivity"
             android:exported="false" />
 
+        <!-- Upload: a small sheet like Share → XVid. -->
+        <activity
+            android:name=".UploadActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:theme="@style/Theme.XVid.Sheet" />
+
         <!-- Woken when the phone joins a Wi-Fi network while To PC links are queued (see QueueSending). -->
         <receiver
             android:name=".WifiJoinedReceiver"

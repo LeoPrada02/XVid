@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Upload: a video from the phone to a PC library. -->
+<resources>
+    <string name="upload_title">Upload to a PC</string>
+    <string name="upload_here">Upload</string>
+    <string name="upload_from_gallery">Upload a video</string>
+    <string name="upload_picking">Pick a video to upload…</string>
+    <string name="upload_looking">Looking for PCs on this Wi-Fi…</string>
+    <string name="upload_choose">Upload to which PC?</string>
+    <string name="upload_send">Upload</string>
+    <string name="upload_close">Close</string>
+    <string name="upload_none_reachable">No PC is reachable, so nothing can be uploaded now. Upload needs the phone on the same Wi-Fi as a PC running XVid.</string>
+    <string name="upload_none_paired">No PCs yet, so nothing can be uploaded. Upload needs the phone on the same Wi-Fi as a PC running XVid: pair with one on the main screen first.</string>
+    <string name="upload_no_picker">This phone has no app to pick a video with.</string>
+    <string name="upload_started">Uploading to %1$s…</string>
+    <string name="upload_unreadable">Couldn\'t read the video on the phone: %1$s</string>
+    <string name="notif_uploading">Uploading to the PC</string>
+    <string name="notif_uploaded">Uploaded to %1$s</string>
+    <string name="notif_upload_failed">Couldn\'t upload</string>
+    <string name="library_hold_to_upload">Tap a video to play it. Hold it to upload it to a PC.</string>
+</resources>

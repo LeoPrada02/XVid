@@ -1,5 +1,6 @@
 package app.xvid
 
+import android.app.Activity
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Typeface
@@ -12,8 +13,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ProgressBar
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.TextView
+import app.xvid.core.Pc
 
 // The building blocks of every screen, styled like the PC web app (static/style.css):
 // dark background, rounded bordered cards, blue bold buttons, muted secondary text.
@@ -122,6 +126,33 @@ internal fun Context.sectionHead(titleId: Int, action: View? = null): LinearLayo
     addView(text(TextStyle.HEADING, titleId), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
     action?.let { addView(it) }
 }
+
+/** A small sheet over the app below (see Theme.XVid.Sheet), like a dialog: [content] on a rounded card. */
+internal fun Activity.sheet(content: LinearLayout.() -> Unit) {
+    setContentView(column {
+        background = rounded(color(R.color.surface), color(R.color.border), radiusDp = 16)
+        setPadding(dp(20), dp(18), dp(20), dp(18))
+        content()
+    })
+    window.setLayout(resources.displayMetrics.widthPixels * 9 / 10, ViewGroup.LayoutParams.WRAP_CONTENT)
+}
+
+/** A choice of PC, one per line, with [selected] chosen; read the choice with [chosenPc]. */
+internal fun Context.pcChoices(pcs: List<Pc>, selected: Pc?): RadioGroup = RadioGroup(this).apply {
+    for (pc in pcs) {
+        addView(RadioButton(context).apply {
+            id = View.generateViewId()
+            tag = pc
+            text = if (pc.home) getString(R.string.pc_choice_home, pc.name) else pc.name
+            setTextColor(color(R.color.text))
+            textSize = 15f
+            buttonTintList = ColorStateList.valueOf(color(R.color.accent))
+            isChecked = pc == selected
+        })
+    }
+}
+
+internal fun RadioGroup.chosenPc(): Pc? = findViewById<RadioButton>(checkedRadioButtonId)?.tag as? Pc
 
 /** Layout params with a top margin, for stacking cards with the web app's 8dp gaps. */
 internal fun Context.spaced(topDp: Int = 8, width: Int = ViewGroup.LayoutParams.MATCH_PARENT) =

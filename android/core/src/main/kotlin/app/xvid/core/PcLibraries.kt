@@ -14,11 +14,13 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
-import okhttp3.Response
+import okio.BufferedSink
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 /**
@@ -40,7 +42,7 @@ class PcStream(val url: String, val http: OkHttpClient, val headers: Map<String,
 
 /**
  * The PC libraries of the known PCs: browse a reachable PC's library, stream from it, Save to phone,
- * and delete. Every call goes to the PC, so the listing is never stale; thumbnails are kept on the
+ * Upload, and delete. Every call goes to the PC, so the listing is never stale; thumbnails are kept on the
  * phone as a cache, per PC, and those of videos no longer listed are removed.
  *
  * Blocking; callers run it off the main thread. Throws [PcException] when the PC can't do it.
@@ -132,6 +134,41 @@ class PcLibraries(
         throw PcException(PcException.Reason.FAILED, "Couldn't save the video: ${e.message ?: e.javaClass.simpleName}")
     }
 
+    /**
+     * Upload: sends [video] from the phone into [pc]'s PC library, then a thumbnail made from the
+     * phone's copy (as the web app does; the upload counts even if that fails). [onProgress] gets a
+     * percentage, or null when the size isn't known. Returns the video as the PC library lists it.
+     */
+    fun upload(pc: Pc, video: PhoneVideoFile, onProgress: (Int?) -> Unit): PcVideo {
+        if (!VideoTypes.isVideo(File(video.name))) {
+            PcRequests.fail("PC libraries only keep ${VideoTypes.extensions.joinToString(", ")} videos, not ${video.name}")
+        }
+        val form = MultipartBody.Builder().setType(MultipartBody.FORM)
+            .addFormDataPart("file", video.name, ProgressBody(video, onProgress))
+            .build()
+        val request = Request.Builder().url(requests.url(pc) { addPathSegments("api/upload") }).post(form)
+        val slow = { http: OkHttpClient -> http.newBuilder().writeTimeout(2, TimeUnit.MINUTES).readTimeout(2, TimeUnit.MINUTES).build() }
+        val uploaded = try {
+            requests.call(pc, request, client = slow) { response ->
+                runCatching { Json.parseToJsonElement(response.body!!.string()) }.getOrNull()?.let(::parseVideo)
+                    ?: PcRequests.fail("${pc.name} didn't say where it put the video")
+            }
+        } catch (e: UnreadableVideo) {
+            PcRequests.fail("Couldn't read the video on the phone: ${e.cause?.message ?: e.cause?.javaClass?.simpleName}")
+        }
+        thumbnailDir.mkdirs()
+        val frame = File(thumbnailDir, "upload-${UUID.randomUUID()}.jpg")
+        try {
+            val length = video.writeThumbnail(frame)
+            sendThumbnail(pc, uploaded, frame, length)
+        } catch (e: Exception) {
+            // No thumbnail: the PC library shows the video without one (and a phone viewing it makes one).
+        } finally {
+            frame.delete()
+        }
+        return uploaded
+    }
+
     /** Deletes [video] from [pc]'s PC library. */
     fun delete(pc: Pc, video: PcVideo) {
         requests.call(pc, Request.Builder().url(requests.url(pc) { addPathSegments("api/videos").addPathSegment(video.name) }).delete(), notFound = gone(pc)) {}
@@ -160,6 +197,42 @@ class PcLibraries(
     }
 
     private fun thumbnailFolder(pc: Pc) = File(thumbnailDir, hash(pc.id))
+
+    /** Reading the video on the phone failed: not the PC's fault, unlike the network's IOExceptions. */
+    private class UnreadableVideo(cause: IOException) : RuntimeException(cause)
+
+    /** [video]'s contents as a request body, reporting how much of it has gone. */
+    private class ProgressBody(private val video: PhoneVideoFile, private val onProgress: (Int?) -> Unit) : RequestBody() {
+        override fun contentType() = VideoTypes.mimeTypeOf(video.name).toMediaType()
+
+        override fun contentLength() = video.sizeBytes.takeIf { it > 0 } ?: -1
+
+        override fun writeTo(sink: BufferedSink) {
+            val total = contentLength().takeIf { it > 0 }
+            var sent = 0L
+            var lastPercent: Int? = -1
+            val stream = try {
+                video.open()
+            } catch (e: IOException) {
+                throw UnreadableVideo(e)
+            }
+            stream.use { input ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val read = try {
+                        input.read(buffer)
+                    } catch (e: IOException) {
+                        throw UnreadableVideo(e)
+                    }
+                    if (read < 0) break
+                    sink.write(buffer, 0, read)
+                    sent += read
+                    val percent = total?.let { (sent * 100 / it).toInt().coerceIn(0, 100) }
+                    if (percent != lastPercent) onProgress(percent).also { lastPercent = percent }
+                }
+            }
+        }
+    }
 
     private companion object {
         /** Changes when the PC replaces the video or its thumbnail. */

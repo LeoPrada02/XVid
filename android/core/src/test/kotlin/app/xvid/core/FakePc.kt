@@ -6,6 +6,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import okhttp3.MultipartReader
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -106,6 +107,8 @@ class FakePc(
                     json(buildJsonObject { put("id", "job${jobs.size}"); put("url", url); put("status", "queued") }.toString())
                         .setHeadersDelay(jobsDelayMillis, java.util.concurrent.TimeUnit.MILLISECONDS)
                 }
+            segments == listOf("api", "upload") ->
+                if (!loggedIn) json("""{"detail":"Not logged in"}""", 401) else receiveUpload(request)
             segments.size == 2 && segments[0] in listOf("media", "thumb") || segments.firstOrNull() == "api" && segments.getOrNull(1) == "videos" ->
                 if (loggedIn) answerLibrary(request, segments) else json("""{"detail":"Not logged in"}""", 401)
             else -> answerPairing(request)
@@ -138,6 +141,26 @@ class FakePc(
                     ?: MockResponse().setResponseCode(404)
             else -> json("""{"detail":"Not found"}""", 404)
         }
+    }
+
+    /** An upload: the file goes into the PC library, newest first, under the name the phone gave it. */
+    private fun receiveUpload(request: RecordedRequest): MockResponse {
+        val boundary = request.getHeader("Content-Type")!!.substringAfter("boundary=")
+        MultipartReader(request.body, boundary).use { reader ->
+            while (true) {
+                val part = reader.nextPart() ?: break
+                val disposition = part.headers["Content-Disposition"].orEmpty()
+                if ("name=\"file\"" !in disposition) continue
+                val name = disposition.substringAfter("filename=\"").substringBefore('"')
+                val content = part.body.readUtf8()
+                val older = library.toMap()
+                library.clear()
+                library[name] = content
+                library.putAll(older - name)
+                return json(videoJson(name, 0).toString())
+            }
+        }
+        return json("""{"detail":"No file"}""", 400)
     }
 
     private fun videoJson(name: String, addedSecondsAgo: Int) = buildJsonObject {

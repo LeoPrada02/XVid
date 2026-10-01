@@ -12,6 +12,9 @@ object VideoTypes {
         "mov" to "video/quicktime",
     )
 
+    /** The extensions, which are also the ones a PC library keeps. */
+    val extensions: Set<String> get() = mimeTypes.keys
+
     fun isVideo(file: File): Boolean = file.extension.lowercase() in mimeTypes
 
     /** The mime type for a video file name; mp4 when the extension isn't known. */

@@ -3,12 +3,8 @@ package app.xvid
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.content.res.ColorStateList
 import android.os.Bundle
 import android.view.View
-import android.view.ViewGroup
-import android.widget.RadioButton
-import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
 import app.xvid.core.Pc
@@ -35,23 +31,9 @@ class ShareActivity : Activity() {
         if (pcs.isEmpty() && !toPcOnly) return downloadToPhone(text)
 
         val status = text(TextStyle.SMALL).apply { visibility = View.GONE }
-        val choice = RadioGroup(this)
-        val last = app.toPc.lastChoice()
-        for (pc in pcs) {
-            choice.addView(RadioButton(this).apply {
-                id = View.generateViewId()
-                tag = pc
-                this.text = if (pc.home) getString(R.string.to_pc_home, pc.name) else pc.name
-                setTextColor(color(R.color.text))
-                textSize = 15f
-                buttonTintList = ColorStateList.valueOf(color(R.color.accent))
-                isChecked = pc == last
-            })
-        }
+        val choice = pcChoices(pcs, selected = app.toPc.lastChoice())
         val buttons = mutableListOf<TextView>()
-        setContentView(column {
-            background = rounded(color(R.color.surface), color(R.color.border), radiusDp = 16)
-            setPadding(dp(20), dp(18), dp(20), dp(18))
+        sheet {
             addView(text(TextStyle.HEADING, R.string.to_pc_title))
             addView(text(TextStyle.SMALL, text.trim()).apply { maxLines = 2 }, spaced(4))
             if (!toPcOnly) {
@@ -64,7 +46,7 @@ class ShareActivity : Activity() {
                 addView(choice, spaced(4))
                 val style = if (toPcOnly) ButtonStyle.PRIMARY else ButtonStyle.SECONDARY
                 addView(button(R.string.to_pc_send, style) {
-                    val pc = choice.findViewById<RadioButton>(choice.checkedRadioButtonId)?.tag as? Pc ?: return@button
+                    val pc = choice.chosenPc() ?: return@button
                     buttons.forEach { it.isEnabled = false; it.alpha = 0.4f }
                     status.setText(R.string.to_pc_sending)
                     status.visibility = View.VISIBLE
@@ -72,8 +54,7 @@ class ShareActivity : Activity() {
                 }.also { buttons += it }, spaced(8))
             }
             addView(status, spaced(8))
-        })
-        window.setLayout(resources.displayMetrics.widthPixels * 9 / 10, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
     }
 
     private fun downloadToPhone(text: String) {

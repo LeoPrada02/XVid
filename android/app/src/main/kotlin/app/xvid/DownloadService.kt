@@ -6,6 +6,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -21,7 +22,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Runs phone downloads and Save to phone one after another in the foreground, with a
+ * Runs phone downloads, Save to phone and Upload one after another in the foreground, with a
  * progress notification, then posts a Saved or failed notification for each. After an
  * X login it also retries the downloads that needed one.
  */
@@ -49,6 +50,7 @@ class DownloadService : Service() {
         val text = intent?.getStringExtra(EXTRA_TEXT)
         val work: (() -> Unit)? = when {
             intent?.action == ACTION_SAVE_FROM_PC -> { -> saveFromPc(intent) }
+            intent?.action == ACTION_UPLOAD -> { -> upload(intent) }
             text != null || intent?.action == ACTION_RETRY_AFTER_LOGIN -> { -> run(text) }
             else -> null
         }
@@ -95,6 +97,28 @@ class DownloadService : Service() {
             }
         }
         showResult(outcome, failedTitle = R.string.notif_save_failed)
+    }
+
+    /** Upload: sends the phone video in [intent] (its data) to the PC in it. */
+    private fun upload(intent: Intent) {
+        val app = application as XVidApp
+        val onProgress = progress(R.string.notif_uploading)
+        val pc = intent.pc(app)
+        val video = intent.data
+        val failure = if (pc == null || video == null) {
+            getString(R.string.pc_gone)
+        } else {
+            try {
+                val uploaded = app.pcLibraries.upload(pc, ContentUriVideoFile(this, video), onProgress)
+                notifications.notify(nextResultId.getAndIncrement(), Notifications.uploaded(this, pc, uploaded.title))
+                null
+            } catch (e: PcException) {
+                e.message.orEmpty()
+            } catch (e: Exception) { // the video couldn't be read on the phone
+                getString(R.string.upload_unreadable, e.message ?: e.javaClass.simpleName)
+            }
+        }
+        failure?.let { showResult(PhoneDownloadOutcome.Failed(it), failedTitle = R.string.notif_upload_failed) }
     }
 
     private fun showResult(outcome: PhoneDownloadOutcome) = showResult(outcome, R.string.notif_failed)
@@ -150,6 +174,7 @@ class DownloadService : Service() {
         private const val EXTRA_TEXT = "text"
         private const val ACTION_RETRY_AFTER_LOGIN = "app.xvid.RETRY_AFTER_LOGIN"
         private const val ACTION_SAVE_FROM_PC = "app.xvid.SAVE_FROM_PC"
+        private const val ACTION_UPLOAD = "app.xvid.UPLOAD"
         private const val PROGRESS_ID = 1
         private const val UPDATE_ID = 2
         private const val PROGRESS_INTERVAL_MS = 500L
@@ -158,6 +183,17 @@ class DownloadService : Service() {
         /** Starts a phone download of the X post in [sharedText]. */
         fun start(context: Context, sharedText: String) {
             context.startForegroundService(Intent(context, DownloadService::class.java).putExtra(EXTRA_TEXT, sharedText))
+        }
+
+        /** Upload: sends the phone [video] (a content:// URI this app can read) to [pc]'s PC library. */
+        fun upload(context: Context, pc: Pc, video: Uri) {
+            context.startForegroundService(
+                Intent(context, DownloadService::class.java)
+                    .setAction(ACTION_UPLOAD)
+                    .setData(video)
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) // the gallery's permission, passed on
+                    .putPc(pc),
+            )
         }
 
         /** Save to phone: copies [video] from [pc]'s PC library into the phone library. */

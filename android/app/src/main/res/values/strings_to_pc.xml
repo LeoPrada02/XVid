@@ -7,7 +7,6 @@
     <string name="to_pc_only">To PC: the PC downloads it into its PC library</string>
     <string name="to_pc_send">To PC</string>
     <string name="to_pc_sending">Sending…</string>
-    <string name="to_pc_home">%1$s (home PC)</string>
     <string name="to_pc_sent">Sent to %1$s</string>
     <string name="to_pc_queued">%1$s isn\'t reachable. The link waits in the queue and goes there once it is.</string>
     <string name="to_pc_refused">%1$s didn\'t take the link: %2$s</string>

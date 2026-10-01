@@ -1,5 +1,6 @@
 package app.xvid
 
+import android.app.AlertDialog
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -56,11 +57,18 @@ object VideoTiles {
         })
     }
 
-    /** A phone library video: tapping plays it on the phone. */
+    /** A phone library video: tapping plays it on the phone, holding it offers Upload to a PC. */
     fun bind(tile: LinearLayout, video: PhoneLibraryVideo) {
         val browser = (tile.context.applicationContext as XVidApp).phoneLibrary
         bind(tile, video.name, video.addedAt, video.sizeBytes, key = video.id, thumbnail = { browser.thumbnail(video) }) {
             play(tile.context, video)
+        }
+        tile.setOnLongClickListener {
+            AlertDialog.Builder(tile.context)
+                .setTitle(video.name)
+                .setItems(arrayOf(tile.context.getString(R.string.upload_title))) { _, _ -> UploadActivity.open(tile.context, Uri.parse(video.id)) }
+                .show()
+            true
         }
     }
 
@@ -89,6 +97,7 @@ object VideoTiles {
         (body.getChildAt(1) as TextView).text = meta(context, addedAt, sizeBytes)
         image.contentDescription = title
         tile.setOnClickListener { onClick() }
+        tile.setOnLongClickListener(null) // tiles are reused for other videos
         image.tag = key
         cache.get(key)?.let {
             image.setImageBitmap(it)

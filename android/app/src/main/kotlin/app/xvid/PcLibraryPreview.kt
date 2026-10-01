@@ -9,7 +9,8 @@ import java.util.concurrent.Executors
 
 /**
  * A reachable PC's PC library in its section of the main screen, like [PhoneLibrarySection]: the
- * newest videos as tiles, and "See all", which opens [PcLibraryActivity].
+ * newest videos as tiles, "Upload" (a video from the gallery, to this PC) and "See all", which
+ * opens [PcLibraryActivity].
  */
 class PcLibraryPreview(context: Context, private val pc: Pc) : LinearLayout(context) {
     private val summary = context.text(TextStyle.SMALL, context.getString(R.string.library_loading))
@@ -19,6 +20,7 @@ class PcLibraryPreview(context: Context, private val pc: Pc) : LinearLayout(cont
         orientation = VERTICAL
         addView(context.row {
             addView(summary, fill())
+            addView(context.button(R.string.upload_here, ButtonStyle.LINK) { UploadActivity.pickFromGallery(context, pc) })
             addView(context.button(R.string.library_see_all, ButtonStyle.LINK) { PcLibraryActivity.open(context, pc) })
         })
         addView(grid)

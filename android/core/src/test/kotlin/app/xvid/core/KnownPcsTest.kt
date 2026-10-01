@@ -303,4 +303,18 @@ class KnownPcsTest {
         assertEquals(listOf(PcStatus(home.listed, PcState.REACHABLE)), pcs.refresh())
         assertEquals(listOf(home.listed), pcs.list())
     }
+
+    @Test
+    fun `the reachable PCs are the ones that answer now`() {
+        val home = pc("home")
+        val laptop = pc("laptop", isHome = false)
+        home.others = listOf(laptop.listed)
+        pcs.pair(home.qr())
+        laptop.stop()
+
+        assertEquals(listOf("home"), pcs.reachable().map { it.name })
+
+        home.stop()
+        assertEquals(emptyList(), pcs.reachable())
+    }
 }

@@ -204,4 +204,64 @@ class PcLibrariesTest {
         val error = assertThrows<PcException> { libraries.delete(pc(), clip) }
         assertEquals(PcException.Reason.NOT_FOUND, error.reason)
     }
+
+    // Upload
+
+    @Test
+    fun `upload sends a video from the phone into the PC library`() {
+        home.library["older.mp4"] = "older video"
+        val progress = mutableListOf<Int?>()
+
+        val uploaded = libraries.upload(pc(), FakePhoneVideoFile("from the gallery.mp4", "x".repeat(300_000))) { progress += it }
+
+        assertEquals("from the gallery.mp4", uploaded.name)
+        assertEquals("x".repeat(300_000), home.library["from the gallery.mp4"])
+        assertEquals(listOf("from the gallery.mp4", "older.mp4"), libraries.videos(pc()).map { it.name })
+        assertEquals(100, progress.last())
+        assertTrue(progress.size > 2) // it moves along the way
+    }
+
+    @Test
+    fun `an uploaded video gets a thumbnail made on the phone`() {
+        libraries.upload(pc(), FakePhoneVideoFile("clip.mp4", "video")) {}
+
+        val form = assertNotNull(home.uploadedThumbnails["clip.mp4"])
+        assertTrue("frame of clip.mp4" in form && "12.0" in form)
+        assertEquals("the phone's thumbnail", libraries.thumbnail(pc(), video("clip.mp4"))?.readText())
+    }
+
+    @Test
+    fun `a video no thumbnail can be made of is still uploaded`() {
+        libraries.upload(pc(), FakePhoneVideoFile("clip.mp4", "video", noFrame = true)) {}
+
+        assertEquals("video", home.library["clip.mp4"])
+        assertEquals(emptyMap(), home.uploadedThumbnails)
+    }
+
+    @Test
+    fun `upload is refused when the PC isn't reachable`() {
+        val pc = pc()
+        home.stop()
+
+        val error = assertThrows<PcException> { libraries.upload(pc, FakePhoneVideoFile("clip.mp4", "video")) {} }
+        assertEquals(PcException.Reason.NOT_REACHABLE, error.reason)
+    }
+
+    @Test
+    fun `a video the phone can't read isn't blamed on the PC`() {
+        val error = assertThrows<PcException> { libraries.upload(pc(), FakePhoneVideoFile("clip.mp4", "video", unreadable = true)) {} }
+
+        assertEquals(PcException.Reason.FAILED, error.reason)
+        assertEquals("Couldn't read the video on the phone: permission revoked", error.message)
+        assertEquals(emptyMap(), home.library)
+    }
+
+    @Test
+    fun `a kind of video PCs don't keep isn't uploaded`() {
+        val error = assertThrows<PcException> { libraries.upload(pc(), FakePhoneVideoFile("old phone clip.3gp", "video")) {} }
+
+        assertEquals(PcException.Reason.FAILED, error.reason)
+        assertTrue(error.message!!.startsWith("PC libraries only keep"))
+        assertEquals(emptyMap(), home.library)
+    }
 }

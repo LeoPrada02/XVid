@@ -2,6 +2,7 @@ package app.xvid.core
 
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.InputStream
 import java.io.OutputStream
 
 /**
@@ -40,6 +41,25 @@ class FakePhoneLibrary(var failWith: String? = null) : PhoneLibrary {
         val bytes = ByteArrayOutputStream().also(content)
         videos[name] = bytes.toString(Charsets.UTF_8)
         return PhoneVideo(id = "video:$name", name = name)
+    }
+}
+
+/** A video on the phone, in memory, to upload. Its "thumbnail" is a frame of [content], unless [noFrame]. */
+class FakePhoneVideoFile(
+    override val name: String,
+    private val content: String,
+    private val noFrame: Boolean = false,
+    private val unreadable: Boolean = false,
+) : PhoneVideoFile {
+    override val sizeBytes: Long get() = content.length.toLong()
+
+    override fun open(): InputStream =
+        if (unreadable) throw java.io.FileNotFoundException("permission revoked") else content.byteInputStream()
+
+    override fun writeThumbnail(target: File): Double? {
+        if (noFrame) throw IllegalStateException("no frame in $name")
+        target.writeText("frame of $name")
+        return 12.0
     }
 }
 

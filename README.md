@@ -203,6 +203,13 @@ phone** copies it into `Movies/XVid` with a progress notification, and **Delete*
 that PC library after asking first. Videos the PC has no thumbnail for (uploads, files dropped
 into its folder) get one from a frame the app reads over the network, and the PC keeps it too.
 
+**Upload from the phone:** hold a video in the phone library and choose **Upload to a PC**, or tap
+**Upload a video** on the phone library screen to pick any video from the gallery (or **Upload** in
+a PC's section to send it straight to that PC). Only reachable PCs can be chosen: with none
+reachable, the app says the phone needs to be on the same Wi-Fi as a PC running XVid. A
+notification shows the progress, and the video appears in that PC library with a thumbnail the
+phone makes.
+
 **To PC and the queue:** Share → XVid opens a small sheet: **Download to phone** (the default) or
 **To PC**, with the PC you chose last already picked. The main screen's **To PC** button does the
 same for a pasted link. A reachable PC gets the link right away and downloads it into its PC library.

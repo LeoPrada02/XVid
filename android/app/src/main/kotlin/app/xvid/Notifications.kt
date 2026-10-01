@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.annotation.StringRes
+import app.xvid.core.Pc
 import app.xvid.core.PhoneDownloadOutcome
 import app.xvid.core.SentLink
 import app.xvid.core.Update
@@ -83,6 +84,15 @@ object Notifications {
         }
         return builder.build()
     }
+
+    /** Upload finished: [title] is in [pc]'s PC library. */
+    fun uploaded(context: Context, pc: Pc, title: String): Notification =
+        Notification.Builder(context, CHANNEL_RESULTS)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(context.getString(R.string.notif_uploaded, pc.name))
+            .setContentText(title)
+            .setAutoCancel(true)
+            .build()
 
     /** Queued links went to their PCs in the background. */
     fun queueSent(context: Context, sent: List<SentLink>): Notification =

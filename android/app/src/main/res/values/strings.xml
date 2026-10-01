@@ -24,6 +24,7 @@
     <string name="pcs_none">No PCs yet. On a PC, open XVid, tap Add a phone, then tap Pair with a PC here.</string>
     <string name="pcs_pair">Pair with a PC</string>
     <string name="pcs_home">%1$s · home PC</string>
+    <string name="pc_choice_home">%1$s (home PC)</string>
     <string name="pcs_checking">Checking…</string>
     <string name="pcs_reachable">Reachable</string>
     <string name="pcs_not_reachable">Not reachable. PCs are only reachable on the home Wi-Fi, while XVid runs there.</string>

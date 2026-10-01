@@ -42,7 +42,8 @@ class PhoneLibrarySection(context: Context) : LinearLayout(context) {
         summary.text = if (videos.isEmpty()) {
             context.getString(R.string.library_empty)
         } else {
-            resources.getQuantityString(R.plurals.library_count, videos.size, videos.size)
+            resources.getQuantityString(R.plurals.library_count, videos.size, videos.size) + "\n" +
+                context.getString(R.string.library_hold_to_upload)
         }
         grid.removeAllViews()
         VideoTiles.addInPairs(grid, videos.take(PREVIEW).map { video -> VideoTiles.create(context).also { VideoTiles.bind(it, video) } })
