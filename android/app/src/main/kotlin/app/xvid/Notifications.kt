@@ -9,6 +9,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.annotation.StringRes
 import app.xvid.core.PhoneDownloadOutcome
+import app.xvid.core.SentLink
 import app.xvid.core.Update
 
 /** The notifications a phone download or Save to phone shows: progress, then Saved, failed or needs an X login. */
@@ -16,6 +17,8 @@ object Notifications {
     private const val CHANNEL_PROGRESS = "downloads"
     private const val CHANNEL_RESULTS = "results"
     private const val CHANNEL_UPDATES = "updates"
+    private const val CHANNEL_QUEUE = "queue"
+    const val QUEUE_SENT_ID = 4
 
     fun createChannels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -27,6 +30,9 @@ object Notifications {
         )
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL_UPDATES, context.getString(R.string.channel_updates), NotificationManager.IMPORTANCE_LOW),
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(CHANNEL_QUEUE, context.getString(R.string.channel_queue), NotificationManager.IMPORTANCE_LOW),
         )
     }
 
@@ -77,6 +83,15 @@ object Notifications {
         }
         return builder.build()
     }
+
+    /** Queued links went to their PCs in the background. */
+    fun queueSent(context: Context, sent: List<SentLink>): Notification =
+        Notification.Builder(context, CHANNEL_QUEUE)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(context.resources.getQuantityString(R.plurals.queue_sent, sent.size, sent.size))
+            .setContentText(context.getString(R.string.queue_sent_to, sent.map { it.pc.name }.distinct().joinToString(", ")))
+            .setAutoCancel(true)
+            .build()
 
     /** A newer version is on GitHub Releases; tapping opens the release page. */
     fun update(context: Context, update: Update): Notification =

@@ -25,4 +25,14 @@
         <item name="android:textColorSecondary">@color/muted</item>
         <item name="android:textColorHint">@color/muted</item>
     </style>
+
+    <!-- The Share → XVid sheet: a dialog over the app it was shared from. -->
+    <style name="Theme.XVid.Sheet" parent="@android:style/Theme.Material.Dialog.NoActionBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorAccent">@color/accent</item>
+        <item name="android:colorControlActivated">@color/accent</item>
+        <item name="android:textColorPrimary">@color/text</item>
+        <item name="android:textColorSecondary">@color/muted</item>
+        <item name="android:windowCloseOnTouchOutside">true</item>
+    </style>
 </resources>

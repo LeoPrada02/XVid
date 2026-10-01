@@ -3,7 +3,7 @@ package app.xvid
 import android.content.Context
 import android.widget.LinearLayout
 import app.xvid.core.Pc
-import app.xvid.core.PcLibraryException
+import app.xvid.core.PcException
 import app.xvid.core.PcVideo
 import java.util.concurrent.Executors
 
@@ -54,6 +54,6 @@ class PcLibraryPreview(context: Context, private val pc: Pc) : LinearLayout(cont
             }
 
         fun failure(context: Context, error: Throwable): String =
-            (error as? PcLibraryException)?.message ?: context.getString(R.string.pc_library_failed)
+            (error as? PcException)?.message ?: context.getString(R.string.pc_library_failed)
     }
 }

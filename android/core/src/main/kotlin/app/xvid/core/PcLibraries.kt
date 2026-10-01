@@ -38,29 +38,12 @@ data class PcVideo(
 /** What a player needs to stream a PC library video: its address, and a client and headers that get in. */
 class PcStream(val url: String, val http: OkHttpClient, val headers: Map<String, String>)
 
-/** Why a PC library couldn't be used. */
-class PcLibraryException(val reason: Reason, message: String) : Exception(message) {
-    enum class Reason {
-        /** Off, not running XVid, or the phone is on another network. */
-        NOT_REACHABLE,
-
-        /** The PC no longer accepts the phone's login: pair again. */
-        PAIR_AGAIN,
-
-        /** The video isn't in the PC library anymore. */
-        NOT_FOUND,
-
-        /** Anything else: the PC answered with an error, or the phone couldn't save the video. */
-        FAILED,
-    }
-}
-
 /**
  * The PC libraries of the known PCs: browse a reachable PC's library, stream from it, Save to phone,
  * and delete. Every call goes to the PC, so the listing is never stale; thumbnails are kept on the
  * phone as a cache, per PC, and those of videos no longer listed are removed.
  *
- * Blocking; callers run it off the main thread. Throws [PcLibraryException] when the PC can't do it.
+ * Blocking; callers run it off the main thread. Throws [PcException] when the PC can't do it.
  */
 class PcLibraries(
     private val pcs: KnownPcs,
@@ -70,11 +53,13 @@ class PcLibraries(
     /** Private cache folder for the thumbnails. */
     private val thumbnailDir: File,
 ) {
+    private val requests = PcRequests(pcs)
+
     /** [pc]'s PC library, newest first. */
     fun videos(pc: Pc): List<PcVideo> {
-        val videos = call(pc, Request.Builder().url(url(pc) { addPathSegments("api/videos") })) { response ->
+        val videos = requests.call(pc, Request.Builder().url(requests.url(pc) { addPathSegments("api/videos") })) { response ->
             val json = runCatching { Json.parseToJsonElement(response.body!!.string()) }.getOrNull()
-            (json as? JsonArray ?: fail("The PC's library listing couldn't be read")).mapNotNull(::parseVideo)
+            (json as? JsonArray ?: PcRequests.fail("The PC's library listing couldn't be read")).mapNotNull(::parseVideo)
         }.sortedByDescending { it.addedAt }
         removeThumbnailsExcept(pc, videos.map(::thumbnailName).toSet())
         return videos
@@ -94,7 +79,7 @@ class PcLibraries(
             file.parentFile.mkdirs()
             val thumb = video.thumb
             if (thumb != null) {
-                call(pc, Request.Builder().url(url(pc) { addPathSegment("thumb").addPathSegment(thumb) })) { response ->
+                requests.call(pc, Request.Builder().url(requests.url(pc) { addPathSegment("thumb").addPathSegment(thumb) })) { response ->
                     part.outputStream().use { response.body!!.byteStream().copyTo(it) }
                 }
             } else {
@@ -111,8 +96,8 @@ class PcLibraries(
 
     /** How to stream [video] from [pc]. Seeking works: the PC answers range requests. */
     fun stream(pc: Pc, video: PcVideo): PcStream {
-        val connection = connection()
-        return PcStream(mediaUrl(pc, video).toString(), connection.http, mapOf(AUTHORIZATION to "Bearer ${connection.session}"))
+        val connection = requests.connection()
+        return PcStream(mediaUrl(pc, video).toString(), connection.http, mapOf(PcRequests.AUTHORIZATION to "Bearer ${connection.session}"))
     }
 
     /**
@@ -122,7 +107,7 @@ class PcLibraries(
     fun saveToPhone(pc: Pc, video: PcVideo, onProgress: (Int?) -> Unit): PhoneVideo = try {
         phoneLibrary.write(video.name) { output ->
             val request = Request.Builder().url(mediaUrl(pc, video, download = true))
-            call(pc, request, client = { it.newBuilder().readTimeout(60, TimeUnit.SECONDS).build() }) { response ->
+            requests.call(pc, request, client = { it.newBuilder().readTimeout(60, TimeUnit.SECONDS).build() }, notFound = gone(pc)) { response ->
                 val body = response.body!!
                 val total = body.contentLength().takeIf { it > 0 }
                 var copied = 0L
@@ -141,48 +126,22 @@ class PcLibraries(
                 if (total != null && copied != total) throw IOException("The PC stopped sending the video")
             }
         }
-    } catch (e: PcLibraryException) {
+    } catch (e: PcException) {
         throw e
     } catch (e: Exception) {
-        throw PcLibraryException(PcLibraryException.Reason.FAILED, "Couldn't save the video: ${e.message ?: e.javaClass.simpleName}")
+        throw PcException(PcException.Reason.FAILED, "Couldn't save the video: ${e.message ?: e.javaClass.simpleName}")
     }
 
     /** Deletes [video] from [pc]'s PC library. */
     fun delete(pc: Pc, video: PcVideo) {
-        call(pc, Request.Builder().url(url(pc) { addPathSegments("api/videos").addPathSegment(video.name) }).delete()) {}
+        requests.call(pc, Request.Builder().url(requests.url(pc) { addPathSegments("api/videos").addPathSegment(video.name) }).delete(), notFound = gone(pc)) {}
     }
 
-    private fun connection(): PcConnection =
-        pcs.connection() ?: throw PcLibraryException(PcLibraryException.Reason.PAIR_AGAIN, "This phone isn't paired with a PC")
+    private fun gone(pc: Pc) = "That video isn't in ${pc.name}'s PC library anymore"
 
-    private fun url(pc: Pc, build: HttpUrl.Builder.() -> Unit): HttpUrl = pc.url.toHttpUrl().newBuilder().apply(build).build()
-
-    private fun mediaUrl(pc: Pc, video: PcVideo, download: Boolean = false): HttpUrl = url(pc) {
+    private fun mediaUrl(pc: Pc, video: PcVideo, download: Boolean = false): HttpUrl = requests.url(pc) {
         addPathSegment("media").addPathSegment(video.name)
         if (download) addQueryParameter("download", "true")
-    }
-
-    /** Sends [request] to [pc] with the phone's login, and hands a successful response to [read]. */
-    private fun <T> call(
-        pc: Pc,
-        request: Request.Builder,
-        client: (OkHttpClient) -> OkHttpClient = { it },
-        read: (Response) -> T,
-    ): T {
-        val connection = connection()
-        val http = client(connection.http.newBuilder().connectTimeout(5, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS).build())
-        try {
-            http.newCall(request.header(AUTHORIZATION, "Bearer ${connection.session}").build()).execute().use { response ->
-                when {
-                    response.code == 401 -> throw PcLibraryException(PcLibraryException.Reason.PAIR_AGAIN, "${pc.name} doesn't accept this phone anymore")
-                    response.code == 404 -> throw PcLibraryException(PcLibraryException.Reason.NOT_FOUND, "That video isn't in ${pc.name}'s library anymore")
-                    !response.isSuccessful -> fail("${pc.name} answered ${response.code}")
-                }
-                return read(response)
-            }
-        } catch (e: IOException) {
-            throw PcLibraryException(PcLibraryException.Reason.NOT_REACHABLE, "Couldn't reach ${pc.name}")
-        }
     }
 
     /** Sends the frame in [jpeg] to [pc] as [video]'s thumbnail, as the web app does. */
@@ -191,8 +150,8 @@ class PcLibraries(
             .addFormDataPart("file", "thumbnail.jpg", jpeg.asRequestBody("image/jpeg".toMediaType()))
             .apply { lengthSeconds?.let { addFormDataPart("duration", it.toString()) } }
             .build()
-        val target = url(pc) { addPathSegments("api/videos").addPathSegment(video.name).addPathSegment("thumb") }
-        call(pc, Request.Builder().url(target).post(form)) {}
+        val target = requests.url(pc) { addPathSegments("api/videos").addPathSegment(video.name).addPathSegment("thumb") }
+        requests.call(pc, Request.Builder().url(target).post(form)) {}
     }
 
     @Synchronized // not while a thumbnail is on its way in
@@ -203,10 +162,6 @@ class PcLibraries(
     private fun thumbnailFolder(pc: Pc) = File(thumbnailDir, hash(pc.id))
 
     private companion object {
-        const val AUTHORIZATION = "Authorization"
-
-        fun fail(message: String): Nothing = throw PcLibraryException(PcLibraryException.Reason.FAILED, message)
-
         /** Changes when the PC replaces the video or its thumbnail. */
         fun thumbnailName(video: PcVideo) = hash("${video.name}\n${video.thumb}\n${video.addedAt}\n${video.sizeBytes}") + ".jpg"
 

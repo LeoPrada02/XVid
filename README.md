@@ -203,6 +203,13 @@ phone** copies it into `Movies/XVid` with a progress notification, and **Delete*
 that PC library after asking first. Videos the PC has no thumbnail for (uploads, files dropped
 into its folder) get one from a frame the app reads over the network, and the PC keeps it too.
 
+**To PC and the queue:** Share → XVid opens a small sheet: **Download to phone** (the default) or
+**To PC**, with the PC you chose last already picked. The main screen's **To PC** button does the
+same for a pasted link. A reachable PC gets the link right away and downloads it into its PC library.
+If the PC isn't reachable, the link waits in the **queue** on the phone, even across restarts, and
+never expires. It's sent in the background when the phone joins a Wi-Fi network (and when the app
+opens), without opening the app. The queue screen lets you remove a link or send it to another PC.
+
 **X login on the phone:** the phone app has its own X login, separate from the PCs'
 `cookies.txt`. In the app's Settings, tap **Log in to X** and log in with your username and
 password (Google sign-in doesn't work inside the app). The session cookies stay in the app's

@@ -10,6 +10,7 @@ import app.xvid.core.PhoneDownloads
 import app.xvid.core.PhoneLibraryBrowser
 import app.xvid.core.RecentDownloads
 import app.xvid.core.RetryingPhoneDownloads
+import app.xvid.core.ToPc
 import app.xvid.core.UpdateCheck
 import app.xvid.core.XLogin
 import app.xvid.core.YtDlpUpdates
@@ -67,6 +68,9 @@ class XVidApp : Application() {
         PcLibraries(knownPcs, MediaStorePhoneLibrary(this), RangeFrameGrabber(), File(cacheDir, "pc-thumbnails"))
     }
 
+    /** To PC and the queue (see ShareActivity, QueueActivity and QueueSending). */
+    val toPc: ToPc by lazy { ToPc(knownPcs, storage, WallClock) }
+
     /** The pairing going on or last done, for whichever main screen is showing (see PcSectionsView). */
     val pairing = PairingStatus()
 
@@ -86,6 +90,8 @@ class XVidApp : Application() {
         BackgroundWork.scheduleWeeklyYtDlpCheck(this)
         // In case the app was stopped before a waiting download's retry was scheduled.
         if (retryingDownloads.hasWaiting()) BackgroundWork.retryWhenOnline(this)
+        // Android forgets the Wi-Fi watch on a restart or an app update.
+        QueueSending.update(this)
     }
 }
 

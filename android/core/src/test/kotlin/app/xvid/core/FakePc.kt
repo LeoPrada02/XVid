@@ -55,6 +55,12 @@ class FakePc(
     /** Set to drop the connection halfway through sending a video. */
     var dropMediaDownloads = false
 
+    /** The X links sent To PC, in the order they arrived. */
+    val jobs = CopyOnWriteArrayList<String>()
+
+    /** How long this PC takes to answer a link sent To PC. */
+    var jobsDelayMillis = 0L
+
     /** The thumbnails the phone sent for videos without one: video name -> the form it posted. */
     val uploadedThumbnails = mutableMapOf<String, String>()
 
@@ -92,6 +98,14 @@ class FakePc(
         val segments = request.requestUrl!!.pathSegments
         val loggedIn = request.getHeader("Authorization") == "Bearer $session"
         return when {
+            segments == listOf("api", "jobs") ->
+                if (!loggedIn) json("""{"detail":"Not logged in"}""", 401)
+                else {
+                    val url = Json.parseToJsonElement(request.body.readUtf8()).jsonObject["url"]!!.jsonPrimitive.content
+                    jobs += url
+                    json(buildJsonObject { put("id", "job${jobs.size}"); put("url", url); put("status", "queued") }.toString())
+                        .setHeadersDelay(jobsDelayMillis, java.util.concurrent.TimeUnit.MILLISECONDS)
+                }
             segments.size == 2 && segments[0] in listOf("media", "thumb") || segments.firstOrNull() == "api" && segments.getOrNull(1) == "videos" ->
                 if (loggedIn) answerLibrary(request, segments) else json("""{"detail":"Not logged in"}""", 401)
             else -> answerPairing(request)

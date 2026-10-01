@@ -111,16 +111,16 @@ class PcLibrariesTest {
         val pc = pc()
         home.stop()
 
-        val error = assertThrows<PcLibraryException> { libraries.videos(pc) }
-        assertEquals(PcLibraryException.Reason.NOT_REACHABLE, error.reason)
+        val error = assertThrows<PcException> { libraries.videos(pc) }
+        assertEquals(PcException.Reason.NOT_REACHABLE, error.reason)
     }
 
     @Test
     fun `a PC that no longer accepts the phone's login asks to pair again`() {
         home.session = "a new token was made on the PC"
 
-        val error = assertThrows<PcLibraryException> { libraries.videos(pc()) }
-        assertEquals(PcLibraryException.Reason.PAIR_AGAIN, error.reason)
+        val error = assertThrows<PcException> { libraries.videos(pc()) }
+        assertEquals(PcException.Reason.PAIR_AGAIN, error.reason)
     }
 
     // Streaming
@@ -155,9 +155,9 @@ class PcLibrariesTest {
         home.library["a clip.mp4"] = "x".repeat(200_000)
         home.dropMediaDownloads = true
 
-        val error = assertThrows<PcLibraryException> { libraries.saveToPhone(pc(), video("a clip.mp4")) {} }
+        val error = assertThrows<PcException> { libraries.saveToPhone(pc(), video("a clip.mp4")) {} }
 
-        assertEquals(PcLibraryException.Reason.NOT_REACHABLE, error.reason)
+        assertEquals(PcException.Reason.NOT_REACHABLE, error.reason)
         assertEquals(emptyMap(), phoneLibrary.videos)
     }
 
@@ -166,8 +166,8 @@ class PcLibrariesTest {
         home.library["a clip.mp4"] = "video"
         phoneLibrary.failWith = "storage is full"
 
-        val error = assertThrows<PcLibraryException> { libraries.saveToPhone(pc(), video("a clip.mp4")) {} }
-        assertEquals(PcLibraryException.Reason.FAILED, error.reason)
+        val error = assertThrows<PcException> { libraries.saveToPhone(pc(), video("a clip.mp4")) {} }
+        assertEquals(PcException.Reason.FAILED, error.reason)
         assertTrue("storage is full" in error.message!!)
     }
 
@@ -177,8 +177,8 @@ class PcLibrariesTest {
         val clip = video("a clip.mp4")
         home.library.clear()
 
-        val error = assertThrows<PcLibraryException> { libraries.saveToPhone(pc(), clip) {} }
-        assertEquals(PcLibraryException.Reason.NOT_FOUND, error.reason)
+        val error = assertThrows<PcException> { libraries.saveToPhone(pc(), clip) {} }
+        assertEquals(PcException.Reason.NOT_FOUND, error.reason)
         assertEquals(emptyMap(), phoneLibrary.videos)
     }
 
@@ -201,7 +201,7 @@ class PcLibrariesTest {
         val clip = video("a clip.mp4")
         home.library.clear()
 
-        val error = assertThrows<PcLibraryException> { libraries.delete(pc(), clip) }
-        assertEquals(PcLibraryException.Reason.NOT_FOUND, error.reason)
+        val error = assertThrows<PcException> { libraries.delete(pc(), clip) }
+        assertEquals(PcException.Reason.NOT_FOUND, error.reason)
     }
 }

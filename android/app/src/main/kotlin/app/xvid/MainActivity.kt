@@ -16,8 +16,8 @@ import android.widget.Toast
 import app.xvid.core.XPostLink
 
 /**
- * The main screen, laid out like the PC web app: a box to paste an X link, the phone
- * downloads, the phone library and the PCs. Also asks for the permissions phone
+ * The main screen, laid out like the PC web app: a box to paste an X link (to download to
+ * the phone or send To PC), the phone downloads, the phone library, the PCs and the queue. Also asks for the permissions phone
  * downloads need (notifications; storage on Android 8 and 9).
  */
 class MainActivity : Activity() {
@@ -55,12 +55,14 @@ class MainActivity : Activity() {
                 addView(link, spaced(12))
                 addView(row {
                     addView(button(R.string.main_paste, ButtonStyle.SECONDARY) { paste() }, fill())
+                    addView(button(R.string.to_pc_button, ButtonStyle.SECONDARY) { toPc() }, fill().apply { marginStart = dp(8) })
                     addView(button(R.string.main_download) { download() }, fill().apply { marginStart = dp(8) })
                 }, spaced(8))
                 addView(linkError, spaced(6))
                 addView(RecentDownloadsSection(this@MainActivity))
                 addView(PhoneLibrarySection(this@MainActivity))
                 addView(PcSectionsView(this@MainActivity))
+                addView(QueueSection(this@MainActivity))
                 addView(text(TextStyle.SMALL, getString(R.string.main_version, BuildConfig.VERSION_NAME)), spaced(28))
                 addView(updateLink, spaced(4))
             },
@@ -71,16 +73,28 @@ class MainActivity : Activity() {
 
     /** Downloads the post in the link box to the phone, like sharing it to XVid. */
     private fun download() {
+        val text = takeLink() ?: return
+        DownloadService.start(this, text)
+        Toast.makeText(this, R.string.toast_downloading, Toast.LENGTH_SHORT).show()
+    }
+
+    /** Sends the link in the link box To PC, choosing the PC as when sharing it to XVid. */
+    private fun toPc() {
+        val text = takeLink() ?: return
+        ShareActivity.toPc(this, text)
+    }
+
+    /** The link box's text, emptied, when it has an X link; else says what's wrong. */
+    private fun takeLink(): String? {
         val text = link.text.toString()
         if (XPostLink.find(text) == null) {
             linkError.setText(if (text.isBlank()) R.string.main_link_empty else R.string.main_link_not_x)
             linkError.visibility = View.VISIBLE
-            return
+            return null
         }
         linkError.visibility = View.GONE
         link.text.clear()
-        DownloadService.start(this, text)
-        Toast.makeText(this, R.string.toast_downloading, Toast.LENGTH_SHORT).show()
+        return text
     }
 
     private fun paste() {

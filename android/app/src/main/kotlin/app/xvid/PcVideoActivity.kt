@@ -21,7 +21,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import app.xvid.core.Pc
-import app.xvid.core.PcLibraryException
+import app.xvid.core.PcException
 import app.xvid.core.PcVideo
 
 /**
@@ -56,7 +56,7 @@ class PcVideoActivity : Activity() {
                 playWhenReady = true
             }
             view.player = player
-        } catch (e: PcLibraryException) {
+        } catch (e: PcException) {
             status.text = e.message
         }
 
@@ -107,8 +107,8 @@ class PcVideoActivity : Activity() {
             val error = try {
                 app.pcLibraries.delete(pc, video)
                 null
-            } catch (e: PcLibraryException) {
-                e.takeIf { it.reason != PcLibraryException.Reason.NOT_FOUND } // already gone is what was wanted
+            } catch (e: PcException) {
+                e.takeIf { it.reason != PcException.Reason.NOT_FOUND } // already gone is what was wanted
             }
             runOnUiThread {
                 if (isDestroyed) return@runOnUiThread

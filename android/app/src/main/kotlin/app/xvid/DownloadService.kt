@@ -13,7 +13,7 @@ import android.os.Looper
 import android.os.SystemClock
 import androidx.annotation.StringRes
 import app.xvid.core.Pc
-import app.xvid.core.PcLibraryException
+import app.xvid.core.PcException
 import app.xvid.core.PcVideo
 import app.xvid.core.PhoneDownloadOutcome
 import java.util.concurrent.ExecutorService
@@ -90,7 +90,7 @@ class DownloadService : Service() {
         } else {
             try {
                 PhoneDownloadOutcome.Saved(listOf(app.pcLibraries.saveToPhone(pc, video, onProgress)))
-            } catch (e: PcLibraryException) {
+            } catch (e: PcException) {
                 PhoneDownloadOutcome.Failed(e.message.orEmpty())
             }
         }
