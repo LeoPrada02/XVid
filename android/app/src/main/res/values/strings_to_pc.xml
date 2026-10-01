@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- To PC and the queue. -->
+<resources>
+    <string name="to_pc_title">Where should this video go?</string>
+    <string name="to_pc_phone">Download to phone</string>
+    <string name="to_pc_or">Or To PC: the PC downloads it into its PC library</string>
+    <string name="to_pc_only">To PC: the PC downloads it into its PC library</string>
+    <string name="to_pc_send">To PC</string>
+    <string name="to_pc_sending">Sending…</string>
+    <string name="to_pc_sent">Sent to %1$s</string>
+    <string name="to_pc_queued">%1$s isn\'t reachable. The link waits in the queue and goes there once it is.</string>
+    <string name="to_pc_refused">%1$s didn\'t take the link: %2$s</string>
+    <string name="to_pc_not_a_link">That isn\'t a link to an X post</string>
+    <string name="to_pc_button">To PC</string>
+
+    <string name="queue_title">Queue</string>
+    <plurals name="queue_count">
+        <item quantity="one">%1$d link waiting for its PC</item>
+        <item quantity="other">%1$d links waiting for their PC</item>
+    </plurals>
+    <string name="queue_see">See queue</string>
+    <string name="queue_empty">Nothing waiting. Links sent To PC while that PC isn\'t reachable wait here.</string>
+    <string name="queue_for">For %1$s · %2$s</string>
+    <string name="queue_unknown_pc">a PC this phone isn\'t paired with anymore</string>
+    <string name="queue_move">Send to another PC</string>
+    <string name="queue_remove">Remove</string>
+    <string name="queue_choose_pc">Send to which PC?</string>
+    <string name="queue_help">Each link goes to its PC by itself once the phone is on the same Wi-Fi and XVid runs there.</string>
+
+    <string name="channel_queue">To PC queue</string>
+    <plurals name="queue_sent">
+        <item quantity="one">%1$d queued link sent To PC</item>
+        <item quantity="other">%1$d queued links sent To PC</item>
+    </plurals>
+    <string name="queue_sent_to">To %1$s</string>
+</resources>

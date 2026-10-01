@@ -2,10 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0f1115">
   <title>XVid</title>
-  <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/static/icon-192.png">
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/app.js" defer></script>
@@ -14,7 +13,7 @@
   <section id="boot" class="card narrow">
     <h1>XVid</h1>
     <p id="boot-message" class="muted">
-      Looking for your PCs… If this message stays, XVid isn't being served by the PC.
+      Connecting… If this message stays, XVid isn't being served by the PC.
       Start it with <code>start.cmd</code> and open the address it prints
       (not the <code>index.html</code> file directly).
     </p>
@@ -36,27 +35,17 @@
       <div class="header-actions">
         <button id="add-pc" class="secondary" hidden>Add a PC</button>
         <button id="add-phone" class="secondary" hidden>Add a phone</button>
-        <label class="button secondary" title="Upload a video from this device">
+        <label class="button secondary" title="Upload a video from this computer">
           Upload<input id="upload" type="file" accept="video/*" hidden>
         </label>
       </div>
     </header>
 
-    <div id="install-hint" class="card hint" hidden>
-      <p><b>Last step:</b> install XVid so it appears in X's <b>Share</b> menu.</p>
-      <button id="install">Install app</button>
-      <p id="install-manual" class="muted small" hidden>In Chrome's menu (⋮), tap <b>Install app</b> or <b>Add to Home screen</b>.</p>
-    </div>
-
     <form id="add-form" class="add">
       <input id="url" type="url" inputmode="url" placeholder="Paste an X link" autocomplete="off">
       <button type="button" id="paste" class="secondary">Paste</button>
-      <button type="button" id="to-pc" class="secondary" hidden>To PC</button>
       <button type="submit" id="download">Download</button>
     </form>
-    <label id="target-row" class="target muted small" hidden>
-      "To PC" and uploads go to <select id="target"></select>
-    </label>
     <p id="warning" class="muted small" hidden></p>
 
     <section id="jobs-section" hidden>
@@ -67,8 +56,7 @@
       <ul id="jobs"></ul>
     </section>
 
-    <div id="libraries"></div>
-    <p id="offline" class="muted small" hidden></p>
+    <section id="library"></section>
   </main>
 
   <dialog id="player">
@@ -77,7 +65,6 @@
       <p id="player-title"></p>
       <p id="player-meta" class="muted small"></p>
       <div class="actions">
-        <a id="save" class="button" download>Save to phone</a>
         <a id="source" class="button secondary" target="_blank" rel="noopener">Open on X</a>
         <button id="delete" class="danger">Delete</button>
         <button id="close" class="secondary">Close</button>
@@ -88,10 +75,18 @@
   <dialog id="pair" class="pair">
     <div class="player-body">
       <h2>Add a phone</h2>
-      <p class="muted small">Connect the phone to the same Wi-Fi as this PC, then scan with its camera.</p>
-      <div id="pair-qr" class="qr"></div>
+      <h3>1. Install the XVid app</h3>
+      <div id="install-step" hidden>
+        <p class="muted small">Scan with the phone's camera to download the app, then open the file to install it.
+          Older phones: pick another file on the <a id="install-page" target="_blank" rel="noopener">release page</a>.</p>
+        <div id="install-qr" class="qr"></div>
+      </div>
+      <p id="install-status" class="muted small"></p>
+      <h3>2. Connect the phone</h3>
+      <p class="muted small">Connect the phone to the same Wi-Fi as this PC. Open the XVid app, tap
+        <b>Pair with a PC</b> and scan this code. It also connects the phone to every PC that joined this one.</p>
+      <div id="pair-app-qr" class="qr"></div>
       <p id="pair-status" class="muted small"></p>
-      <p class="small"><code id="pair-url"></code></p>
       <div class="actions">
         <button id="pair-new" class="secondary">New code</button>
         <button id="pair-close">Done</button>

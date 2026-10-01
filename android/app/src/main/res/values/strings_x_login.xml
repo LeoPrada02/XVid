@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notif_needs_login">Log in to X in XVid</string>
+    <string name="x_login_help">Log in to X with your username and password. Google sign-in doesn\'t work here. XVid keeps the login on this phone only, for downloading sensitive and protected posts.</string>
+    <string name="x_login_done">Logged in to X</string>
+    <string name="settings_x_login">X login</string>
+    <string name="settings_x_logged_in">Logged in. Phone downloads can get sensitive and protected posts.</string>
+    <string name="settings_x_logged_out">Not logged in. Sensitive and protected posts need an X login.</string>
+    <string name="settings_x_log_in">Log in to X</string>
+    <string name="settings_x_log_out">Log out</string>
+</resources>

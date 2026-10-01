@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- PC libraries: each reachable PC's videos, streaming one, Save to phone and delete. -->
+<resources>
+    <string name="pc_library_title">%1$s · PC library</string>
+    <plurals name="pc_library_count">
+        <item quantity="one">%1$d video in this PC library</item>
+        <item quantity="other">%1$d videos in this PC library</item>
+    </plurals>
+    <string name="pc_library_empty">No videos in this PC library yet.</string>
+    <string name="pc_library_failed">Couldn\'t read this PC library.</string>
+    <string name="pc_video_meta">On %1$s · %2$s</string>
+    <string name="pc_video_cant_play">Couldn\'t play this video from %1$s. Check the phone is on the same Wi-Fi.</string>
+    <string name="pc_video_save">Save to phone</string>
+    <string name="pc_video_saving">Saving to the phone…</string>
+    <string name="pc_video_delete">Delete</string>
+    <string name="pc_video_cancel">Cancel</string>
+    <string name="pc_video_delete_title">Delete from %1$s?</string>
+    <string name="pc_video_delete_message">%1$s will be deleted from the PC library on %2$s. This can\'t be undone.</string>
+    <string name="pc_video_deleted">Deleted from %1$s</string>
+    <string name="notif_saving">Saving to the phone</string>
+    <string name="notif_save_failed">Couldn\'t save to the phone</string>
+    <string name="pc_gone">This PC isn\'t paired with the phone anymore</string>
+</resources>

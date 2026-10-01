@@ -1,0 +1,15 @@
+# Machine-specific SDK location
+local.properties
+
+# Build outputs and caches
+.gradle/
+.kotlin/
+build/
+captures/
+*.apk
+*.aab
+
+# IDE
+.idea/
+*.iml
+.DS_Store

@@ -1,4 +1,4 @@
-"""Generate the PWA icons (a download arrow) without extra dependencies."""
+"""Generate the web UI's icon (a download arrow) without extra dependencies."""
 
 import struct
 import zlib
@@ -9,7 +9,7 @@ FG = (29, 155, 240)
 
 
 def inside_arrow(x: float, y: float) -> bool:
-    """Coordinates are 0..1. Kept within the central 60% so it survives maskable cropping."""
+    """Coordinates are 0..1."""
     stem = 0.44 <= x <= 0.56 and 0.24 <= y <= 0.55
     head = 0.52 <= y <= 0.70 and abs(x - 0.5) <= (0.70 - y) * 1.2
     tray = 0.74 <= y <= 0.80 and 0.28 <= x <= 0.72
@@ -34,6 +34,5 @@ def png(size: int) -> bytes:
 
 if __name__ == "__main__":
     static = Path(__file__).resolve().parent.parent / "static"
-    for size in (192, 512):
-        (static / f"icon-{size}.png").write_bytes(png(size))
-        print(f"wrote icon-{size}.png")
+    (static / "icon-192.png").write_bytes(png(192))
+    print("wrote icon-192.png")

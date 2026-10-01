@@ -34,7 +34,7 @@ def decode(code: str) -> dict:
         sys.exit("That doesn't look like an XVid code. Copy it again from 'Add a PC' on the home PC.")
 
 
-def fetch_from_home(code: dict, name: str) -> dict:
+def fetch_from_home(code: dict, name: str, pc_id: str) -> dict:
     # The home PC's certificate isn't trusted here yet, so check it against the pinned fingerprint instead.
     context = ssl.create_default_context()
     context.check_hostname = False
@@ -46,7 +46,7 @@ def fetch_from_home(code: dict, name: str) -> dict:
         sys.exit(f"Couldn't reach the home PC at {code['h']}: {e}. Is XVid running there, on the same Wi-Fi?")
     if hashlib.sha256(conn.sock.getpeercert(binary_form=True)).hexdigest() != code["f"]:
         sys.exit("The PC at that address isn't the one that made this code. Nothing was sent.")
-    body = json.dumps({"code": code["c"], "name": name, "url": f"https://{lan_ip()}:{HTTPS_PORT}"})
+    body = json.dumps({"code": code["c"], "name": name, "url": f"https://{lan_ip()}:{HTTPS_PORT}", "id": pc_id})
     conn.request("POST", "/api/join", body, {"Content-Type": "application/json"})
     res = conn.getresponse()
     data = json.loads(res.read())
@@ -76,12 +76,12 @@ args = parser.parse_args()
 settings = config.load()
 settings["name"] = args.name.strip() or settings["name"]
 if args.join:
-    data = fetch_from_home(decode(args.join), settings["name"])
+    data = fetch_from_home(decode(args.join), settings["name"], settings["id"])
     install_authority(data["ca_cert"], data["ca_key"])
     TOKEN_FILE.write_text(data["token"])
     settings["home"] = data["home"]
     for pc in data["pcs"]:
-        config.upsert_peer(settings, pc["name"], pc["url"])
+        config.upsert_peer(settings, pc["name"], pc["url"], pc.get("id"))
     print(f"Joined the home PC at {data['home']}.")
 config.save(settings)
 print(f"This PC is called '{settings['name']}' on the phone.")

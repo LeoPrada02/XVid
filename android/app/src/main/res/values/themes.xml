@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The PC web app's dark colours (static/style.css), so the phone app looks the same. -->
+    <color name="bg">#FF0F1115</color>
+    <color name="surface">#FF1A1D23</color>
+    <color name="text">#FFE8EAED</color>
+    <color name="muted">#FF9AA1AC</color>
+    <color name="border">#FF2C3038</color>
+    <color name="accent">#FF1D9BF0</color>
+    <color name="accent_text">#FFFFFFFF</color>
+    <color name="danger">#FFD9383A</color>
+    <color name="ok">#FF1A9E55</color>
+
+    <color name="brand">#FF111111</color>
+    <color name="brand_foreground">#FFFFFFFF</color>
+
+    <style name="Theme.XVid" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:colorBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+        <item name="android:colorAccent">@color/accent</item>
+        <item name="android:colorControlActivated">@color/accent</item>
+        <item name="android:textColorPrimary">@color/text</item>
+        <item name="android:textColorSecondary">@color/muted</item>
+        <item name="android:textColorHint">@color/muted</item>
+    </style>
+
+    <!-- The Share → XVid sheet: a dialog over the app it was shared from. -->
+    <style name="Theme.XVid.Sheet" parent="@android:style/Theme.Material.Dialog.NoActionBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorAccent">@color/accent</item>
+        <item name="android:colorControlActivated">@color/accent</item>
+        <item name="android:textColorPrimary">@color/text</item>
+        <item name="android:textColorSecondary">@color/muted</item>
+        <item name="android:windowCloseOnTouchOutside">true</item>
+    </style>
+</resources>
