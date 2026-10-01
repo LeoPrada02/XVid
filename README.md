@@ -28,6 +28,8 @@ certificate, and once to let your phone through the firewall.
 
 ### 2. On the phone
 
+You can use the app by itself if you dont need the PC as a hub, if you want to PC hub do the following steps:
+
 In XVid on the PC, click **Add a phone**:
 
 1. **Install the XVid app:** scan the first QR code with the phone's camera. It downloads the app
@@ -38,10 +40,6 @@ In XVid on the PC, click **Add a phone**:
 
 Then, in the X app, open a post with a video: **Share → XVid**. If it's not listed, tap **More** and pin it.
 
-**Used the old XVid web app on this phone before?** It's gone: the PC no longer serves it. Remove it
-from the home screen (hold its icon → **Uninstall** or **Remove**), optionally remove the old
-certificate (*Settings → Encryption & credentials → User credentials*), then install the app and
-pair as above. Videos you saved before stay in your Downloads.
 
 ## Day to day
 
