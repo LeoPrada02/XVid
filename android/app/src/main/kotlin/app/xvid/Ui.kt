@@ -17,6 +17,7 @@ import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import app.xvid.core.Pc
 
 // The building blocks of every screen, styled like the PC web app (static/style.css):
@@ -150,6 +151,20 @@ internal fun Context.foldable(head: TextView, key: String, show: (open: Boolean)
         apply(open)
     }
 }
+
+/**
+ * Pulling [content] down from its top reloads it: [reload] gets a function to call once it's done,
+ * which hides the spinner. [scrollsUp] says whether [content] can still scroll up (when it isn't the
+ * scrolling view itself), so pulling only reloads from the very top.
+ */
+internal fun Context.pullToReload(content: View, scrollsUp: (() -> Boolean)? = null, reload: (done: () -> Unit) -> Unit): SwipeRefreshLayout =
+    SwipeRefreshLayout(this).apply {
+        setColorSchemeColors(color(R.color.accent))
+        setProgressBackgroundColorSchemeColor(color(R.color.surface))
+        addView(content)
+        scrollsUp?.let { check -> setOnChildScrollUpCallback { _, _ -> check() } }
+        setOnRefreshListener { reload { isRefreshing = false } }
+    }
 
 /** A small sheet over the app below (see Theme.XVid.Sheet), like a dialog: [content] on a rounded card. */
 internal fun Activity.sheet(content: LinearLayout.() -> Unit) {

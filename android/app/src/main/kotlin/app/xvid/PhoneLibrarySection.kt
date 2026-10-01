@@ -24,10 +24,11 @@ class PhoneLibrarySection(context: Context) : LinearLayout(context) {
 
     override fun onWindowVisibilityChanged(visibility: Int) {
         super.onWindowVisibilityChanged(visibility)
-        if (visibility == View.VISIBLE) load()
+        if (visibility == View.VISIBLE) reload()
     }
 
-    private fun load() {
+    /** Reads the phone library again. */
+    fun reload() {
         val browser = (context.applicationContext as XVidApp).phoneLibrary
         Thread {
             val result = runCatching { browser.videos() }

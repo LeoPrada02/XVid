@@ -33,7 +33,7 @@ class PcLibraryActivity : Activity() {
         listing = Executors.newSingleThreadExecutor()
         status = text(TextStyle.SMALL)
         val grid = ZoomableGrid(this, "pcLibrary", adapter)
-        setContentView(
+        setContentView(pullToReload(
             column {
                 setBackgroundColor(color(R.color.bg))
                 setPadding(dp(16), dp(24), dp(16), 0)
@@ -41,7 +41,8 @@ class PcLibraryActivity : Activity() {
                 addView(status, spaced(4))
                 addView(grid, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
             },
-        )
+            scrollsUp = { grid.canScrollVertically(-1) },
+        ) { done -> load(done) })
     }
 
     override fun onResume() {
@@ -54,12 +55,14 @@ class PcLibraryActivity : Activity() {
         super.onDestroy()
     }
 
-    private fun load() {
+    /** Lists the library again, then calls [done]. */
+    private fun load(done: () -> Unit = {}) {
         if (adapter.count == 0) status.setText(R.string.library_loading)
         listing.execute {
             val result = runCatching { app.pcLibraries.videos(pc) }
             runOnUiThread {
                 if (isDestroyed) return@runOnUiThread
+                done()
                 result.onSuccess { videos ->
                     adapter.show(videos)
                     status.text = PcLibraryPreview.summary(this, videos)

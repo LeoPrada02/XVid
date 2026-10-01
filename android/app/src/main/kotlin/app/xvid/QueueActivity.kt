@@ -115,7 +115,11 @@ class QueueSection(context: Context) : LinearLayout(context) {
     /** Shown again whenever the main screen comes back; then the queue is tried too, as the app opens. */
     override fun onWindowVisibilityChanged(visibility: Int) {
         super.onWindowVisibilityChanged(visibility)
-        if (visibility != View.VISIBLE) return
+        if (visibility == View.VISIBLE) reload()
+    }
+
+    /** Shows the queue again, and tries sending it. */
+    fun reload() {
         val toPc = (context.applicationContext as XVidApp).toPc
         val waiting = toPc.queue().size
         show(waiting)

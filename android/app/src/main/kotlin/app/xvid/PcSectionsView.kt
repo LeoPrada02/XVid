@@ -68,7 +68,13 @@ class PcSectionsView(context: Context) : LinearLayout(context) {
         app.pairing.message?.let(::say)
     }
 
-    private fun refresh() = inBackground({ pcs.refresh() }) { show(it, checking = false) }
+    private fun refresh() = reload {}
+
+    /** Checks the PCs again and shows them, then calls [done]. */
+    fun reload(done: () -> Unit) = inBackground({ pcs.refresh() }) {
+        show(it, checking = false)
+        done()
+    }
 
     private fun scan() {
         val options = GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()

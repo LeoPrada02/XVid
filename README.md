@@ -205,6 +205,7 @@ videos, and **See all** opens its whole PC library. Tapping a PC's name (or the 
 title) folds that library away; the app remembers it. The phone downloads are behind the
 **Downloads** button at the top, next to **Settings**. On a whole library (**See all**), pinch to
 show more and smaller videos a row (up to 4), or spread your fingers for fewer and bigger (down to 1).
+Pulling a screen down from its top reloads it (the main screen checks the PCs again).
 Tapping a video streams it from the PC inside
 the app (other video players wouldn't trust the PCs' certificate authority). Under it, **Save to
 phone** copies it into `Movies/XVid` with a progress notification, and **Delete** removes it from

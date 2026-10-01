@@ -42,8 +42,10 @@ class MainActivity : Activity() {
             }
         }
         linkError = text(TextStyle.ERROR).apply { visibility = View.GONE }
-        setContentView(
-            screen {
+        val phoneLibrary = PhoneLibrarySection(this)
+        val pcSections = PcSectionsView(this)
+        val queue = QueueSection(this)
+        val content = screen {
                 // Takes the focus when the screen opens, so the keyboard stays down until the link box is tapped.
                 isFocusableInTouchMode = true
                 requestFocus()
@@ -65,13 +67,18 @@ class MainActivity : Activity() {
                     addView(button(R.string.main_download) { download() }, fill().apply { marginStart = dp(8) })
                 }, spaced(8))
                 addView(linkError, spaced(6))
-                addView(PhoneLibrarySection(this@MainActivity))
-                addView(PcSectionsView(this@MainActivity))
-                addView(QueueSection(this@MainActivity))
+                addView(phoneLibrary)
+                addView(pcSections)
+                addView(queue)
                 addView(text(TextStyle.SMALL, getString(R.string.main_version, BuildConfig.VERSION_NAME)), spaced(28))
                 addView(updateLink, spaced(4))
-            },
-        )
+            }
+        // Pulling down from the top reloads the phone library, the PCs and the queue.
+        setContentView(pullToReload(content) { done ->
+            phoneLibrary.reload()
+            queue.reload()
+            pcSections.reload(done)
+        })
         requestMissingPermissions()
         showNewerRelease()
     }

@@ -46,7 +46,7 @@ class PhoneLibraryActivity : Activity() {
         listing = Executors.newSingleThreadExecutor()
         status = text(TextStyle.SMALL)
         val grid = ZoomableGrid(this, "phoneLibrary", adapter)
-        setContentView(
+        setContentView(pullToReload(
             column {
                 setBackgroundColor(color(R.color.bg))
                 setPadding(dp(16), dp(24), dp(16), 0)
@@ -58,7 +58,8 @@ class PhoneLibraryActivity : Activity() {
                 addView(status, spaced(4))
                 addView(grid, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
             },
-        )
+            scrollsUp = { grid.canScrollVertically(-1) },
+        ) { done -> load(done) })
         val missing = PhoneLibraryPermissions.missing(this)
         if (missing.isNotEmpty()) requestPermissions(missing.toTypedArray(), 1)
     }
@@ -84,12 +85,14 @@ class PhoneLibraryActivity : Activity() {
         super.onDestroy()
     }
 
-    private fun load() {
+    /** Lists the library again, then calls [done]. */
+    private fun load(done: () -> Unit = {}) {
         if (adapter.count == 0) status.setText(R.string.library_loading)
         listing.execute {
             val result = runCatching { browser.videos() }
             runOnUiThread {
                 if (isDestroyed) return@runOnUiThread
+                done()
                 result.onSuccess { videos ->
                     adapter.show(videos)
                     status.text = if (videos.isEmpty()) {

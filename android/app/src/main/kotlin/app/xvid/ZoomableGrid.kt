@@ -54,6 +54,7 @@ internal class ZoomableGrid(context: Context, private val key: String, adapter: 
         scale.onTouchEvent(event)
         if (event.pointerCount > 1 && !pinching) {
             pinching = true
+            parent?.requestDisallowInterceptTouchEvent(true) // nor a pull to reload
             val cancel = MotionEvent.obtain(event).apply { action = MotionEvent.ACTION_CANCEL }
             super.dispatchTouchEvent(cancel)
             cancel.recycle()
