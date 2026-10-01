@@ -118,11 +118,12 @@ if ($phone) {
 
     # Changes that need administrator rights, collected so Windows asks only once.
     $adminCommands = @()
+    # Only HTTPS (8443) for the phone app. Older versions also opened 8000 for the phone web app's setup page.
     $rule = Get-NetFirewallRule -DisplayName "XVid" -ErrorAction SilentlyContinue
     $ports = if ($rule) { @(($rule | Get-NetFirewallPortFilter).LocalPort) } else { @() }
-    if (-not ($ports -contains "8000" -and $ports -contains "8443")) {
+    if (-not ($ports.Count -eq 1 -and $ports -contains "8443")) {
         $adminCommands += "Remove-NetFirewallRule -DisplayName XVid -ErrorAction SilentlyContinue"
-        $adminCommands += "New-NetFirewallRule -DisplayName XVid -Direction Inbound -Protocol TCP -LocalPort 8000,8443 -Action Allow -Profile Private | Out-Null"
+        $adminCommands += "New-NetFirewallRule -DisplayName XVid -Direction Inbound -Protocol TCP -LocalPort 8443 -Action Allow -Profile Private | Out-Null"
     }
     # The phone app finds this PC on the Wi-Fi (mDNS), so the PC's address may change.
     if (-not (Get-NetFirewallRule -DisplayName "XVid discovery" -ErrorAction SilentlyContinue)) {

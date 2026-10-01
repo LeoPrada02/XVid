@@ -103,7 +103,7 @@ def pc(tmp_path, monkeypatch):
     monkeypatch.setenv("XVID_TOKEN", TOKEN)
     monkeypatch.setenv("CAROOT", str(caroot))
     monkeypatch.setenv("XVID_RELEASES_REPO", "")  # no GitHub Releases unless a test sets one
-    for name in ("XVID_COOKIES_FILE", "XVID_COOKIES_BROWSER", "XVID_PHONE_VIEW", "XVID_HTTPS_PORT", "XVID_HTTP_PORT"):
+    for name in ("XVID_COOKIES_FILE", "XVID_COOKIES_BROWSER", "XVID_HTTPS_PORT", "XVID_HTTP_PORT"):
         monkeypatch.delenv(name, raising=False)
 
     # A fresh import reads the environment above and starts with empty jobs, codes and lockouts.

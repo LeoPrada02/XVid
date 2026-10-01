@@ -1,9 +1,8 @@
-"""XVid: a video library shared between the PC and the phone.
+"""XVid on the PC: its PC library, and the API the XVid phone app uses.
 
-The PC downloads X videos with yt-dlp into one folder (the library). The phone
-browses it over the home Wi-Fi (HTTPS, see tools/setup_https.py), streams
-videos, and saves the ones it wants. Downloads started on the phone go straight
-to the phone instead (the PC only passes them through).
+The PC downloads X videos with yt-dlp into one folder (its PC library). Its own browser shows the
+web UI (static/). The phone app pairs with it over the home Wi-Fi (HTTPS, see tools/setup_https.py),
+browses and streams the PC library, saves videos to the phone, uploads videos and sends links To PC.
 """
 
 import base64
@@ -21,20 +20,18 @@ import urllib.request
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from urllib.parse import quote, urlencode, urlparse
+from urllib.parse import urlencode, urlparse
 
 import qrcode
 import qrcode.image.svg
 import yt_dlp
 from fastapi import Depends, FastAPI, Form, HTTPException, Request, Response, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from yt_dlp.networking import Request as YdlRequest
 
 from app import config
-from app.network import CA_FILE, CERT_FILE, HTTP_PORT, HTTPS_PORT, TOKEN_FILE, cert_ip, current_ip, https_ready
+from app.network import CA_FILE, CERT_FILE, HTTPS_PORT, TOKEN_FILE, current_ip, https_ready
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
@@ -100,10 +97,6 @@ print(f"XVid token:   {TOKEN}", flush=True)
 
 app = FastAPI(title="XVid")
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
-# The phone app is served by the home PC but also talks to the other PCs. Every request still needs
-# the session (sent as a header, never an ambient cookie), so allowing any origin exposes nothing.
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
-                   allow_headers=["Authorization", "Content-Type"])
 
 
 def trusted_local(request: Request) -> bool:
@@ -266,104 +259,6 @@ def clear_finished_jobs() -> dict:
     return {"ok": True}
 
 
-# ---------------------------------------------------------------- straight to the phone
-# A browser can't run yt-dlp, so the PC finds the video and passes it through to the
-# phone as a download. Nothing is kept on the PC or added to the library.
-
-DIRECT_TTL = 1800  # seconds a prepared download stays available ("Save again")
-direct_items: dict[str, dict] = {}
-direct_lock = threading.Lock()
-
-
-def progressive_format(entry: dict) -> dict | None:
-    """The best single file with both audio and video, which can be streamed through as is."""
-    candidates = [f for f in entry.get("formats") or []
-                  if f.get("protocol") in ("http", "https") and f.get("vcodec") != "none" and f.get("acodec") != "none"]
-    return max(candidates, key=lambda f: (f.get("height") or 0, f.get("tbr") or 0), default=None)
-
-
-def direct_filename(entry: dict, index: int, count: int) -> str:
-    suffix = f"_{index}" if count > 1 else ""
-    return re.sub(r"[^A-Za-z0-9_.-]+", "_", f"{entry.get('uploader_id') or 'x'}_{entry.get('id')}{suffix}.mp4")
-
-
-def expire_direct() -> None:
-    now = time.time()
-    with direct_lock:
-        for item_id in [k for k, item in direct_items.items() if item["expires"] < now]:
-            item = direct_items.pop(item_id)
-            if item.get("folder"):
-                shutil.rmtree(item["folder"], ignore_errors=True)
-
-
-@app.post("/api/direct", dependencies=[Depends(require_auth)])
-def create_direct(body: JobIn) -> list[dict]:
-    """Prepare a phone download: returns one item per video in the post."""
-    url = parse_x_url(body.url)
-    expire_direct()
-    folder = None
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts()) as ydl:
-            info = ydl.extract_info(url, download=False)
-        entries = [e for e in info.get("entries") or [info] if e]
-        formats = [progressive_format(e) for e in entries]
-        if all(formats):
-            sources = [{"url": f["url"], "headers": f.get("http_headers") or {}} for f in formats]
-        else:
-            # Some videos only come as separate audio and video: download and merge them in a temp folder.
-            folder = TEMP / f"direct-{uuid.uuid4().hex}"
-            opts = ydl_opts(paths={"home": str(folder), "temp": str(folder)}, outtmpl=OUTTMPL,
-                            format=FORMAT, merge_output_format="mp4")
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-            entries = [e for e in info.get("entries") or [info] if e and e.get("requested_downloads")]
-            sources = [{"path": e["requested_downloads"][0]["filepath"]} for e in entries]
-    except Exception as e:
-        raise HTTPException(502, clean_error(str(e)))
-    if not entries:
-        raise HTTPException(404, "No video found in this post")
-
-    items = []
-    with direct_lock:
-        for i, (entry, source) in enumerate(zip(entries, sources), 1):
-            item = {"id": secrets.token_urlsafe(12), "title": entry.get("title"),
-                    "filename": direct_filename(entry, i, len(entries)),
-                    "expires": time.time() + DIRECT_TTL, "folder": folder, **source}
-            direct_items[item["id"]] = item
-            items.append({"id": item["id"], "title": item["title"], "filename": item["filename"]})
-    return items
-
-
-@app.get("/api/direct/{item_id}", dependencies=[Depends(require_media)])
-def direct_download(item_id: str) -> Response:
-    with direct_lock:
-        item = direct_items.get(item_id)
-    if not item or item["expires"] < time.time():
-        raise HTTPException(404, "This download expired. Share the post to XVid again.")
-    if "path" in item:
-        return FileResponse(item["path"], filename=item["filename"])
-
-    ydl = yt_dlp.YoutubeDL(ydl_opts())  # reuses yt-dlp's headers and cookies for X's servers
-    try:
-        upstream = ydl.urlopen(YdlRequest(item["url"], headers=item["headers"]))
-    except Exception as e:
-        ydl.close()
-        raise HTTPException(502, f"Couldn't get the video from X: {e}")
-
-    def body():
-        try:
-            while chunk := upstream.read(256 * 1024):
-                yield chunk
-        finally:
-            upstream.close()
-            ydl.close()
-
-    headers = {"Content-Disposition": f'attachment; filename="{item["filename"]}"'}
-    if length := upstream.headers.get("Content-Length"):
-        headers["Content-Length"] = length  # lets Android show download progress
-    return StreamingResponse(body(), media_type="video/mp4", headers=headers)
-
-
 # ---------------------------------------------------------------- library
 
 def library_file(name: str) -> Path:
@@ -523,10 +418,6 @@ def new_code(codes: dict[str, float]) -> str:
     return code
 
 
-def home_url() -> str:
-    return CONFIG["home"] or config.self_url()
-
-
 @app.post("/api/pair", dependencies=[Depends(require_auth)])
 def create_pairing(request: Request) -> dict:
     if not trusted_local(request):
@@ -536,16 +427,10 @@ def create_pairing(request: Request) -> dict:
     if not CA_FILE.exists():  # set up by an older version, before the app pinned the CA
         raise HTTPException(409, "Phone access needs updating for the XVid app. Run setup.cmd on the PC again.")
     code = new_code(pair_codes)
-    # The code goes in the #fragment, which browsers never send over the (plain HTTP) network.
-    # The phone installs the web app from the home PC, and logs in on this PC. (The native app comes
-    # from GitHub Releases instead: see app_release.)
-    fragment = urlencode({"pair": code, "home": home_url(), "pc": config.self_url()})
-    url = f"http://{cert_ip()}:{HTTP_PORT}/setup#{fragment}"
-    # The phone app scans this one instead. With the CA's fingerprint it checks it's really talking to
-    # this PC (see pairing_ca) before it sends the code, and trusts the CA for its own connections only.
+    # The phone app scans this. With the CA's fingerprint it checks it's really talking to this PC (see
+    # pairing_ca) before it sends the code, and trusts the CA for its own connections only.
     app_text = "xvid://pair?" + urlencode({"pc": config.self_url(), "code": code, "fp": fingerprint(CA_FILE)})
-    return {"url": url, "svg": qr_svg(url), "expires_in": PAIR_TTL,
-            "app": {"text": app_text, "svg": qr_svg(app_text)}}
+    return {"app": {"text": app_text, "svg": qr_svg(app_text)}, "expires_in": PAIR_TTL}
 
 
 @app.get("/api/pair/ca")
@@ -596,12 +481,6 @@ def redeem_pairing(body: PairIn, request: Request, response: Response) -> dict:
         login_failures[ip].append(time.time())
         raise HTTPException(401, "This pairing code expired or was already used. Scan a new QR code on the PC.")
     return start_session(ip, request, response)
-
-
-@app.get("/api/ping")
-def ping() -> dict:
-    """Unauthenticated; the phone setup page uses it to detect when the certificate is trusted."""
-    return {"ok": True}
 
 
 @app.get("/api/me", dependencies=[Depends(require_auth)])
@@ -702,12 +581,9 @@ if CONFIG["home"] and https_ready():
     threading.Thread(target=announce_to_home, daemon=True).start()
 
 
-PHONE_VIEW = os.environ.get("XVID_PHONE_VIEW") == "1"  # for development: treat every browser as a phone
-
-
 def is_local(request: Request) -> bool:
     """True when the browser runs on this PC (it connects from the same address it connects to)."""
-    if PHONE_VIEW or not request.client:
+    if not request.client:
         return False
     server_host = (request.scope.get("server") or (None,))[0]
     return request.client.host in ("127.0.0.1", "::1") or request.client.host == server_host
@@ -721,31 +597,6 @@ def open_folder(request: Request) -> dict:
     return {"ok": True}
 
 
-@app.get("/share")
-def share_target(title: str = "", text: str = "", url: str = "") -> RedirectResponse:
-    """Android share-sheet entry point (see share_target in the manifest)."""
-    found = find_x_url(f"{url} {text} {title}") or ""
-    return RedirectResponse(f"/?share={quote(found)}", status_code=303)
-
-
-@app.get("/ca.crt")
-def ca_certificate() -> FileResponse:
-    """The public root certificate, so the phone can trust XVid's HTTPS. Never the private key."""
-    if not CA_FILE.exists():
-        raise HTTPException(404, "Phone access isn't set up yet. Run setup.cmd on the PC.")
-    return FileResponse(CA_FILE, media_type="application/x-x509-ca-cert", filename="xvid-ca.crt")
-
-
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
-
-
-@app.get("/manifest.webmanifest")
-def manifest() -> FileResponse:
-    return FileResponse(STATIC / "manifest.webmanifest", media_type="application/manifest+json")
-
-
-@app.get("/sw.js")
-def service_worker() -> FileResponse:
-    return FileResponse(STATIC / "sw.js", media_type="text/javascript", headers={"Cache-Control": "no-cache"})

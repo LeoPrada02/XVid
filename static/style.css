@@ -31,7 +31,7 @@ body {
   font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
-main, #login { max-width: 960px; margin: 0 auto; padding: 16px 16px calc(24px + env(safe-area-inset-bottom)); }
+main, #login { max-width: 960px; margin: 0 auto; padding: 16px 16px 24px; }
 
 h1 { font-size: 1.4rem; margin: 0; }
 h2 { font-size: 1rem; margin: 0; }
@@ -94,23 +94,12 @@ button, .button {
 .job-url { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .job-top > :last-child { flex-shrink: 0; }
 .job .error { margin: 6px 0 0; font-size: 0.85rem; overflow-wrap: anywhere; }
-.job-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-.small-button { padding: 6px 12px; font-size: 0.9rem; }
 .bar { height: 4px; margin-top: 8px; border-radius: 2px; background: var(--border); overflow: hidden; }
 .bar > div { height: 100%; background: var(--accent); transition: width 0.3s; }
 .bar.indeterminate > div { width: 30%; animation: slide 1.2s infinite ease-in-out; }
 @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
 
-.target { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
-.target select { font: inherit; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
-#offline { margin-top: 16px; }
 .code-box { width: 100%; margin-top: 12px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--text); font: 0.85rem/1.4 ui-monospace, monospace; word-break: break-all; resize: none; }
-
-.library > summary { list-style: none; cursor: pointer; user-select: none; }
-.library > summary::-webkit-details-marker { display: none; }
-.library > summary h2::before { content: "▾"; display: inline-block; width: 1.1em; color: var(--muted); transition: transform 0.15s; }
-.library:not([open]) > summary h2::before { transform: rotate(-90deg); }
-.library:not([open]) > summary { margin-bottom: 0; }
 
 .folder { display: flex; align-items: center; gap: 8px; margin: -4px 0 10px; }
 .folder code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
@@ -139,39 +128,18 @@ dialog video { width: 100%; max-height: 65dvh; display: block; background: #000;
 .player-body p { margin: 0 0 4px; overflow-wrap: anywhere; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 
-/* Phones: the player takes the whole screen, with the video filling the space above the buttons. */
-@media (max-width: 600px) {
-  #player { width: 100%; max-width: 100%; height: 100%; max-height: 100%; margin: 0; border-radius: 0; }
-  #player[open] { display: flex; flex-direction: column; }
-  #player video { flex: 1; min-height: 0; max-height: none; }
-  #player .player-body { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
-}
-
 .header-actions { display: flex; gap: 8px; }
-.hint { display: grid; gap: 10px; justify-items: start; margin-bottom: 12px; padding: 14px 16px; }
-.hint p { margin: 0; }
 
 .pair { width: min(420px, calc(100vw - 32px)); }
 .pair h2 { margin-bottom: 4px; }
 .pair h3 { margin: 12px 0 4px; font-size: 1rem; }
 .qr { background: #fff; border-radius: var(--radius); padding: 12px; margin: 12px auto; width: min(280px, 100%); aspect-ratio: 1; }
 .qr svg { width: 100%; height: 100%; display: block; }
-.pair code { overflow-wrap: anywhere; }
-
-.setup { max-width: 560px; }
-.setup h1 { margin: 8px 0 4px; }
-.steps { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 12px; }
-.steps > li { display: grid; gap: 10px; justify-items: start; }
-.steps h2, .steps p { margin: 0; }
-.steps ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
-.warning-card { margin-top: 12px; border-color: var(--danger); }
-.status.ok { color: #1a9e55; font-weight: 600; }
-.button.disabled { opacity: 0.4; pointer-events: none; }
 
 #toast {
   position: fixed;
   left: 50%;
-  bottom: calc(20px + env(safe-area-inset-bottom));
+  bottom: 20px;
   transform: translateX(-50%);
   max-width: calc(100vw - 32px);
   padding: 10px 16px;

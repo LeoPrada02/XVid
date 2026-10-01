@@ -1,15 +1,13 @@
 """Start XVid: `python -m app` (run.ps1 does this).
 
-With certificates (from setup.cmd) it serves the phone over the home Wi-Fi:
-  - HTTPS on :8443, the app itself
-  - HTTP on :8000, only the phone setup page and the certificate (see setup_app.py)
-Without them, only this PC can connect, on http://127.0.0.1:8000.
+With certificates (from setup.cmd) it serves HTTPS on :8443 over the home Wi-Fi, for the XVid
+phone app (and this PC's browser), and announces this PC so the phone app finds it (discovery.py).
+Without them, only this PC's browser can connect, on http://127.0.0.1:8000.
 
 `--log FILE` sends all output to FILE (run.ps1 -Background uses it at Windows startup).
 """
 
 import sys
-import threading
 
 import uvicorn
 
@@ -23,16 +21,11 @@ if "--log" in sys.argv:
 if https_ready():
     current, expected = lan_ip(), cert_ip()
     if expected and current != expected:
-        print(f"Note: this PC's Wi-Fi address changed from {expected} to {current}.")
-        print("      The phone app finds it by itself. XVid in a phone's browser needs setup.cmd again.")
+        print(f"Note: this PC's Wi-Fi address changed from {expected} to {current}. The phone app finds it by itself.")
     print(f"XVid on this PC: https://localhost:{HTTPS_PORT}  (use 'Add a phone' there)", flush=True)
 
     settings = config.load()
     discovery.start(settings["id"], settings["name"], HTTPS_PORT)  # so the phone app finds this PC at any address
-
-    setup_server = uvicorn.Server(uvicorn.Config(
-        "app.setup_app:setup_app", host="0.0.0.0", port=HTTP_PORT, log_level="warning"))
-    threading.Thread(target=setup_server.run, daemon=True).start()
 
     uvicorn.run("app.main:app", host="0.0.0.0", port=HTTPS_PORT,
                 ssl_certfile=str(CERT_FILE), ssl_keyfile=str(KEY_FILE))

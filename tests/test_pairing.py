@@ -4,7 +4,7 @@ import hashlib
 import json
 from urllib.parse import parse_qs, urlparse
 
-from conftest import CA_DER, CA_PEM, LOCAL, PC_IP, PC_URL, bearer, login
+from conftest import CA_DER, CA_PEM, LOCAL, PC_URL, bearer, login
 
 CA_FINGERPRINT = hashlib.sha256(CA_DER).hexdigest()
 
@@ -14,13 +14,8 @@ def create_code(pc) -> str:
     assert res.status_code == 200, res.text
     body = res.json()
     assert body["expires_in"] == 600
-    assert body["svg"].startswith("<")
-    url = urlparse(body["url"])
-    assert url.scheme == "http" and url.hostname == PC_IP and url.path == "/setup"
-    assert url.query == ""  # the code travels in the #fragment, never sent over plain HTTP
-    fragment = parse_qs(url.fragment)
-    assert fragment["pc"] == [PC_URL]
-    return fragment["pair"][0]
+    assert set(body) == {"app", "expires_in"}  # only the app's QR code: the web app's setup page is gone
+    return app_pairing_fields(body)["code"]
 
 
 def redeem(client, code: str):
@@ -98,7 +93,11 @@ def app_pairing(pc) -> dict:
     """Creates a code; returns what the app's QR code says (pc, code, fp)."""
     res = pc.client(LOCAL).post("/api/pair")
     assert res.status_code == 200, res.text
-    app = res.json()["app"]
+    return app_pairing_fields(res.json())
+
+
+def app_pairing_fields(body: dict) -> dict:
+    app = body["app"]
     assert app["svg"].startswith("<")
     text = urlparse(app["text"])
     assert (text.scheme, text.netloc, text.path) == ("xvid", "pair", "")

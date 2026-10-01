@@ -59,7 +59,7 @@ class KnownPcsTest {
 
         val anyOtherClient = OkHttpClient() // the system's trust, as any other app on the phone has it
         assertThrows<SSLException> {
-            anyOtherClient.newCall(Request.Builder().url("${home.url}/api/ping").build()).execute()
+            anyOtherClient.newCall(Request.Builder().url("${home.url}/api/pcs").build()).execute()
         }
     }
 
