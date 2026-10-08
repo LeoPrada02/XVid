@@ -1,7 +1,7 @@
 # XVid
 
 Download X (Twitter) videos on your Android phone, anywhere, and move them between the phone and
-your Windows PCs at home.
+your Windows PCs at home with just one click.
 
 - In the X app: **Share → XVid → Download to phone**. The phone app downloads the video itself, on
   any network, with no PC needed. It lands in `Movies/XVid`, where your gallery and Google Photos show it.
